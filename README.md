@@ -133,11 +133,28 @@ directory (`graceful/v1.2.0`) for `go get` to resolve it. They also pin
 different Go versions — check the module's `go.mod` before using a new language
 feature.
 
+The root `Makefile` runs across every module. Docker is the only requirement —
+the Go toolchain and linter come from pinned images, so nothing has to be
+installed on the host and nothing depends on the host's Go version.
+
 ```sh
-cd graceful
-go test -race -vet=all ./...
-golangci-lint run ./...
+make            # test + lint, all modules
+make test
+make lint
+make lint-fix   # or: make fmt
+make bench
+make tidy       # rewrites go.mod/go.sum
+make shell      # interactive container in the same sandbox
+
+make test MODULES=graceful   # narrow to one module
 ```
 
-CI runs both for every module on push to `main` and on pull requests, in a
-matrix job per module.
+Containers run unprivileged as the calling user, with a read-only root
+filesystem, all capabilities dropped, and `--network=none`. Only `make deps`
+and `make tidy` get network access; `make deps` warms the module cache
+(`~/.cache/liquidcats-libraries`) so everything else can stay offline, and runs
+automatically when a `go.mod` or `go.sum` changes. `make clean` drops the cache.
+
+Linting uses the shared `.golangci.yaml` at the repo root. CI runs test and
+lint for every module on push to `main` and on pull requests, in a matrix job
+per module.

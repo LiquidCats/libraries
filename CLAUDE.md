@@ -24,15 +24,41 @@ Consequences:
 
 ## Checks
 
-Per module:
+Use the root `Makefile`. It runs everything in pinned containers
+(`golang:1.27-bookworm`, `golangci/golangci-lint:v2.13.2`), loops over every
+module, and passes the shared root `.golangci.yaml` explicitly — module dirs
+have no config of their own, so a bare `golangci-lint run` inside one would
+silently fall back to defaults.
 
 ```sh
-cd <module>
-go test -race -vet=all ./...
-golangci-lint run ./...
+make                      # test + lint, everything
+make test MODULES=graceful
+make lint MODULES=graceful
+make lint-fix             # autofix; `make fmt` for formatters only
+make shell                # interactive container, same sandbox
 ```
 
-Both must be clean — they are the two CI steps. `graceful` and `workers` tests
+`MODULES` defaults to every directory containing a `go.mod`, so a new module is
+picked up automatically here — but not in CI, see below.
+
+Do not fall back to running `go` or `golangci-lint` on the host when a target
+fails; the host toolchain is a different version and will disagree with CI.
+Things worth knowing before debugging a failure:
+
+- Containers run with `--network=none`. `make deps` (auto-run via the
+  `.make/deps.stamp` prerequisite whenever a `go.mod`/`go.sum` changes) and
+  `make tidy` are the only targets with network. A `dial tcp ... network is
+  unreachable` error means the module cache is cold — `make deps`, do not add
+  network to other targets.
+- `GOTOOLCHAIN=local`, so a module requiring a Go version newer than `GO_IMAGE`
+  fails outright instead of downloading a toolchain. Bump `GO_IMAGE` in the
+  Makefile when raising a `go` directive.
+- `GOFLAGS` is left at the default `-mod=readonly`; only `make tidy` may rewrite
+  manifests.
+- Caches live in `~/.cache/liquidcats-libraries`, not the host GOPATH.
+  `make clean` removes them.
+
+Both targets must be clean — they are the two CI steps. `graceful` and `workers` tests
 exercise real timing and take ~7s and ~15s; that is normal, not a hang.
 `evm-lib` and `utxo-lib` currently have no tests, so `go test` only builds and
 vets them.

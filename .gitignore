@@ -27,6 +27,9 @@ go.work.sum
 # env file
 .env
 
+# Makefile stamps
+.make/
+
 # Editor/IDE
 .idea/
 .vscode/

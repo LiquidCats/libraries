@@ -73,6 +73,8 @@ linters:
     - usetesting
     - wastedassign
     - whitespace
+  disable:
+    - gochecknoglobals
   settings:
     cyclop:
       max-complexity: 30

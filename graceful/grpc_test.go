@@ -71,7 +71,7 @@ func TestGRPCServerStartsAndResponds(t *testing.T) {
 	healthClient := healthpb.NewHealthClient(conn)
 	resp, err := healthClient.Check(context.Background(), &healthpb.HealthCheckRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.Status)
+	assert.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.GetStatus())
 	assert.True(t, attacher.attached, "attacher should have been called")
 
 	// Shutdown the server
@@ -167,7 +167,7 @@ func TestGRPCServerGracefulShutdown(t *testing.T) {
 	select {
 	case <-done:
 		// Server shut down successfully
-		assert.NoError(t, serverErr)
+		require.NoError(t, serverErr)
 	case <-time.After(5 * time.Second):
 		t.Fatal("server did not shut down within timeout")
 	}
@@ -206,7 +206,7 @@ func TestGRPCServerPortInUse(t *testing.T) {
 	runner2 := graceful.GRPCRunner(attacher2, graceful.WithGRPCPort(port))
 
 	err := runner2(context.Background())
-	assert.Error(t, err, "should return error when port is already in use")
+	require.Error(t, err, "should return error when port is already in use")
 
 	cancel1()
 	wg.Wait()
@@ -244,7 +244,7 @@ func TestGRPCServerMultipleOptions(t *testing.T) {
 	healthClient := healthpb.NewHealthClient(conn)
 	resp, err := healthClient.Check(context.Background(), &healthpb.HealthCheckRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.Status)
+	assert.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.GetStatus())
 
 	// Shutdown the server
 	cancel()

@@ -2,6 +2,7 @@ package codec
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/LiquidCats/libraries/evm-lib/parser/types"
 )
@@ -13,7 +14,8 @@ import (
 //	    0x18cbafe5
 //	swapTokensForExactETH(uint amountOut, uint amountInMax, address[] path, address to, uint deadline)
 //	    0x4a25d94a
-//	swapExactTokensForETHSupportingFeeOnTransferTokens(uint amountIn, uint amountOutMin, address[] path, address to, uint deadline)
+//	swapExactTokensForETHSupportingFeeOnTransferTokens(
+//	    uint amountIn, uint amountOutMin, address[] path, address to, uint deadline)
 //	    0x791ac947
 //
 // In all three, the recipient is encoded directly in calldata (word index 3).
@@ -22,6 +24,9 @@ import (
 type UniswapV2RouterDecoder struct{}
 
 func NewUniswapV2RouterDecoder() *UniswapV2RouterDecoder { return &UniswapV2RouterDecoder{} }
+
+// v2WordRecipient is the calldata word holding the `to` recipient.
+const v2WordRecipient = 3
 
 var (
 	selV2SwapExactTokensForETH    = types.Selector{0x18, 0xcb, 0xaf, 0xe5}
@@ -46,7 +51,7 @@ func (d *UniswapV2RouterDecoder) Decode(sel types.Selector, params types.InputPa
 	//   word 2: offset to path[]
 	//   word 3: address `to`
 	//   word 4: deadline
-	recipient, err := ReadAddress(params, 3)
+	recipient, err := ReadAddress(params, v2WordRecipient)
 	if err != nil {
 		return nil, fmt.Errorf("uniswap_v2_router: recipient: %w", err)
 	}
@@ -54,7 +59,8 @@ func (d *UniswapV2RouterDecoder) Decode(sel types.Selector, params types.InputPa
 	// `swapTokensForExactETH` pins the exact ETH output in word 0.
 	// The other variants only know a minimum in word 1.
 	if sel == selV2SwapTokensForExactETH {
-		amountOut, err := ReadUint256(params, 0)
+		var amountOut *big.Int
+		amountOut, err = ReadUint256(params, 0)
 		if err != nil {
 			return nil, fmt.Errorf("uniswap_v2_router: amountOut: %w", err)
 		}

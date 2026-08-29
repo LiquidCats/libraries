@@ -1,6 +1,7 @@
 package codec
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/LiquidCats/libraries/evm-lib/parser/types"
@@ -36,12 +37,12 @@ func NewMulticallDecoder(sub SubParser) *MulticallDecoder {
 func (d *MulticallDecoder) SetSubParser(sub SubParser) { d.sub = sub }
 
 var (
-	selMulticallBytes        = types.Selector{0xac, 0x96, 0x50, 0xd8}
-	selMulticallDeadline     = types.Selector{0x5a, 0xe4, 0x01, 0xdc}
-	selMulticallPrevHash     = types.Selector{0x1f, 0x04, 0x64, 0xd1}
-	selMC3Aggregate3         = types.Selector{0x82, 0xad, 0x56, 0xcb}
-	selMC3TryAggregate       = types.Selector{0xbc, 0xe3, 0x8b, 0xd7}
-	selMC3Aggregate          = types.Selector{0x25, 0x2d, 0xba, 0x42}
+	selMulticallBytes    = types.Selector{0xac, 0x96, 0x50, 0xd8}
+	selMulticallDeadline = types.Selector{0x5a, 0xe4, 0x01, 0xdc}
+	selMulticallPrevHash = types.Selector{0x1f, 0x04, 0x64, 0xd1}
+	selMC3Aggregate3     = types.Selector{0x82, 0xad, 0x56, 0xcb}
+	selMC3TryAggregate   = types.Selector{0xbc, 0xe3, 0x8b, 0xd7}
+	selMC3Aggregate      = types.Selector{0x25, 0x2d, 0xba, 0x42}
 )
 
 func (d *MulticallDecoder) CanDecode(s types.Selector) bool {
@@ -55,7 +56,7 @@ func (d *MulticallDecoder) CanDecode(s types.Selector) bool {
 
 func (d *MulticallDecoder) Decode(sel types.Selector, params types.InputParams) (*types.ParsedInputData, error) {
 	if d.sub == nil {
-		return nil, fmt.Errorf("multicall: no sub-parser configured")
+		return nil, errors.New("multicall: no sub-parser configured")
 	}
 
 	out := &types.ParsedInputData{Selector: sel}
@@ -92,7 +93,11 @@ func (d *MulticallDecoder) Decode(sel types.Selector, params types.InputParams) 
 
 // recurseBytesArray walks a bytes[] starting at arrOff and re-parses every
 // element through the sub-parser.
-func (d *MulticallDecoder) recurseBytesArray(out *types.ParsedInputData, params []byte, arrOff int) (*types.ParsedInputData, error) {
+func (d *MulticallDecoder) recurseBytesArray(
+	out *types.ParsedInputData,
+	params []byte,
+	arrOff int,
+) (*types.ParsedInputData, error) {
 	elems, err := ReadBytesArrayElements(params, arrOff)
 	if err != nil {
 		return nil, fmt.Errorf("multicall: read elements: %w", err)
@@ -106,7 +111,12 @@ func (d *MulticallDecoder) recurseBytesArray(out *types.ParsedInputData, params 
 // recurseTupleArray walks a (struct[]) where each struct contains a `bytes`
 // field at one of `bytesWordIdxInStruct`. structHeadWordCount is the index
 // of the array offset within the top-level head section.
-func (d *MulticallDecoder) recurseTupleArray(out *types.ParsedInputData, params []byte, arrayHeadWord int, bytesWordIdxInStruct []int) (*types.ParsedInputData, error) {
+func (d *MulticallDecoder) recurseTupleArray(
+	out *types.ParsedInputData,
+	params []byte,
+	arrayHeadWord int,
+	bytesWordIdxInStruct []int,
+) (*types.ParsedInputData, error) {
 	arrOff, err := ReadOffset(params, arrayHeadWord)
 	if err != nil {
 		return nil, fmt.Errorf("multicall: tuple array offset: %w", err)
@@ -119,7 +129,8 @@ func (d *MulticallDecoder) recurseTupleArray(out *types.ParsedInputData, params 
 	// a list of offsets pointing to each struct.
 	headBase := arrOff + wordSize
 	for i := range count {
-		relOff, err := ReadOffsetAt(params, headBase+i*wordSize)
+		var relOff int
+		relOff, err = ReadOffsetAt(params, headBase+i*wordSize)
 		if err != nil {
 			return nil, fmt.Errorf("multicall: tuple[%d] offset: %w", i, err)
 		}
@@ -128,11 +139,14 @@ func (d *MulticallDecoder) recurseTupleArray(out *types.ParsedInputData, params 
 		// is a fixed-size head word; we treat structBase as the struct's
 		// head start and find the bytes offset there.
 		for _, wIdx := range bytesWordIdxInStruct {
-			bytesRelOff, err := ReadOffsetAt(params, structBase+wIdx*wordSize)
+			var bytesRelOff int
+			bytesRelOff, err = ReadOffsetAt(params, structBase+wIdx*wordSize)
 			if err != nil {
 				return nil, fmt.Errorf("multicall: tuple[%d] bytes offset: %w", i, err)
 			}
-			data, err := ReadDynamicBytesAt(params, structBase+bytesRelOff)
+
+			var data []byte
+			data, err = ReadDynamicBytesAt(params, structBase+bytesRelOff)
 			if err != nil {
 				return nil, fmt.Errorf("multicall: tuple[%d] bytes: %w", i, err)
 			}
@@ -146,7 +160,7 @@ func (d *MulticallDecoder) recurseTupleArray(out *types.ParsedInputData, params 
 // transfers it produced. Errors and empty selectors are tolerated so a
 // single malformed entry doesn't abort the whole batch.
 func (d *MulticallDecoder) appendSub(out *types.ParsedInputData, raw []byte) {
-	if len(raw) < 4 {
+	if len(raw) < selectorSize {
 		return
 	}
 	inner, err := d.sub.ParseBytes(raw)

@@ -38,7 +38,8 @@ func (p *Parser) Parse(data types.RawInputData) (*types.ParsedInputData, error) 
 			continue
 		}
 
-		result, err := codec.Decode(sel, params)
+		var result *types.ParsedInputData
+		result, err = codec.Decode(sel, params)
 		if err != nil {
 			return nil, fmt.Errorf("decoding failed: %w", err)
 		}

@@ -9,7 +9,11 @@ import (
 	"github.com/LiquidCats/libraries/evm-lib/parser/types"
 )
 
-const wordSize = 32
+const (
+	wordSize = 32
+	// selectorSize is the 4-byte function selector that prefixes calldata.
+	selectorSize = 4
+)
 
 // ReadWord reads a single 32-byte word at the given word index.
 func ReadWord(params []byte, wordIdx int) ([]byte, error) {
@@ -18,7 +22,10 @@ func ReadWord(params []byte, wordIdx int) ([]byte, error) {
 
 func ReadWordAt(params []byte, offset int) ([]byte, error) {
 	if offset < 0 || offset+wordSize > len(params) {
-		return nil, fmt.Errorf("ReadWordAt: out of bounds at offset %d (need %d, have %d)", offset, offset+wordSize, len(params))
+		return nil, fmt.Errorf(
+			"ReadWordAt: out of bounds at offset %d (need %d, have %d)",
+			offset, offset+wordSize, len(params),
+		)
 	}
 	return params[offset : offset+wordSize], nil
 }
@@ -139,11 +146,15 @@ func ReadBytesArrayElements(params []byte, arrayOffset int) ([][]byte, error) {
 
 	for i := range count {
 		ptrOffset := elemBase + i*wordSize
-		relOffset, err := ReadOffsetAt(params, ptrOffset)
+
+		var relOffset int
+		relOffset, err = ReadOffsetAt(params, ptrOffset)
 		if err != nil {
 			return nil, fmt.Errorf("ReadBytesArrayElements: pointer %d: %w", i, err)
 		}
-		data, err := ReadDynamicBytesAt(params, elemBase+relOffset)
+
+		var data []byte
+		data, err = ReadDynamicBytesAt(params, elemBase+relOffset)
 		if err != nil {
 			return nil, fmt.Errorf("ReadBytesArrayElements[%d]: %w", i, err)
 		}

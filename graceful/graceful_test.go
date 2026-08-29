@@ -41,7 +41,7 @@ func TestSignalsReceived(t *testing.T) {
 
 	select {
 	case err := <-done:
-		assert.ErrorIs(t, err, graceful.ErrShutdownBySignal)
+		require.ErrorIs(t, err, graceful.ErrShutdownBySignal)
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for signal to be handled")
 	}
@@ -80,8 +80,8 @@ func TestWaitContextRunnerError(t *testing.T) {
 
 	err := graceful.WaitContext(ctx, runner1, runner2)
 
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, expectedErr)
+	require.Error(t, err)
+	require.ErrorIs(t, err, expectedErr)
 }
 
 func TestWaitContextContextCancel(t *testing.T) {
@@ -95,7 +95,7 @@ func TestWaitContextContextCancel(t *testing.T) {
 
 	err := graceful.WaitContext(ctx, runner)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
 		t.Fatalf("Expected a context cancellation error, got %v", err)

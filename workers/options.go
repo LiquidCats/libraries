@@ -4,15 +4,15 @@ import "time"
 
 type Opt[T any] func(r *config[T])
 
-func WithMinWorkerCount[T any](min int32) Opt[T] {
+func WithMinWorkerCount[T any](count int32) Opt[T] {
 	return func(cfg *config[T]) {
-		cfg.min = min
+		cfg.min = count
 	}
 }
 
-func WithMaxWorkerCount[T any](max int32) Opt[T] {
+func WithMaxWorkerCount[T any](count int32) Opt[T] {
 	return func(cfg *config[T]) {
-		cfg.max = max
+		cfg.max = count
 	}
 }
 

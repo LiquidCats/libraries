@@ -2,13 +2,17 @@ package graceful
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/rotisserie/eris"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+)
+
+const (
+	defaultGRPCPort          = "50051"
+	defaultConnectionTimeout = 120 * time.Second
 )
 
 type grpcSrv struct {
@@ -36,8 +40,8 @@ func WithConnectionTimeout(timeout time.Duration) GRPCOpt {
 
 func GRPCRunner(attacher GRPCAttacher, opts ...GRPCOpt) Runner {
 	cfg := &grpcSrv{
-		port:              "50051",
-		connectionTimeout: 120 * time.Second,
+		port:              defaultGRPCPort,
+		connectionTimeout: defaultConnectionTimeout,
 	}
 
 	for _, opt := range opts {
@@ -49,7 +53,9 @@ func GRPCRunner(attacher GRPCAttacher, opts ...GRPCOpt) Runner {
 	attacher.AttachToGRPC(grpcServer)
 
 	return func(ctx context.Context) error {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.port))
+		var lc net.ListenConfig
+
+		lis, err := lc.Listen(ctx, "tcp", net.JoinHostPort("", cfg.port))
 		if err != nil {
 			return eris.Wrap(err, "failed to listen")
 		}

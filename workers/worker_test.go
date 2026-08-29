@@ -1,3 +1,4 @@
+//nolint:testpackage // white-box: asserts on the unexported Pool.cfg and scaling state.
 package workers
 
 import (
@@ -12,12 +13,12 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// PoolTestSuite is a test suite for the worker pool
+// PoolTestSuite is a test suite for the worker pool.
 type PoolTestSuite struct {
 	suite.Suite
 }
 
-// TestPoolTestSuite runs the test suite
+// TestPoolTestSuite runs the test suite.
 func TestPoolTestSuite(t *testing.T) {
 	suite.Run(t, new(PoolTestSuite))
 }
@@ -34,12 +35,12 @@ func (s *PoolTestSuite) TestNew_ValidConfig() {
 		WithMinLoad[int](0.2),
 	)
 
-	require.NoError(s.T(), err)
-	require.NotNil(s.T(), pool)
-	assert.Equal(s.T(), int32(2), pool.cfg.min)
-	assert.Equal(s.T(), int32(5), pool.cfg.max)
-	assert.Equal(s.T(), 0.8, pool.cfg.maxLoad)
-	assert.Equal(s.T(), 0.2, pool.cfg.minLoad)
+	s.Require().NoError(err)
+	s.Require().NotNil(pool)
+	s.Equal(int32(2), pool.cfg.min)
+	s.Equal(int32(5), pool.cfg.max)
+	s.InDelta(0.8, pool.cfg.maxLoad, 0)
+	s.InDelta(0.2, pool.cfg.minLoad, 0)
 }
 
 func (s *PoolTestSuite) TestNew_DefaultConfig() {
@@ -49,13 +50,13 @@ func (s *PoolTestSuite) TestNew_DefaultConfig() {
 
 	pool, err := New(handler)
 
-	require.NoError(s.T(), err)
-	assert.Equal(s.T(), DefaultMinWorkerCount, pool.cfg.min)
-	assert.Equal(s.T(), DefaultMaxWorkerCount, pool.cfg.max)
-	assert.Equal(s.T(), DefaultMaxLoad, pool.cfg.maxLoad)
-	assert.Equal(s.T(), DefaultMinLoad, pool.cfg.minLoad)
-	assert.Equal(s.T(), DefaultScalingCooldown, pool.cfg.scalingCooldown)
-	assert.Equal(s.T(), DefaultPollingFrequency, pool.cfg.pollingFreq)
+	s.Require().NoError(err)
+	s.Equal(DefaultMinWorkerCount, pool.cfg.min)
+	s.Equal(DefaultMaxWorkerCount, pool.cfg.max)
+	s.InDelta(DefaultMaxLoad, pool.cfg.maxLoad, 0)
+	s.InDelta(DefaultMinLoad, pool.cfg.minLoad, 0)
+	s.Equal(DefaultScalingCooldown, pool.cfg.scalingCooldown)
+	s.Equal(DefaultPollingFrequency, pool.cfg.pollingFreq)
 }
 
 func (s *PoolTestSuite) TestNew_ValidationErrors() {
@@ -136,8 +137,8 @@ func (s *PoolTestSuite) TestNew_ValidationErrors() {
 
 			pool, err := New(handler, tt.opts...)
 
-			assert.ErrorIs(s.T(), err, tt.expectedErr)
-			assert.Nil(s.T(), pool)
+			s.Require().ErrorIs(err, tt.expectedErr)
+			s.Nil(pool)
 		})
 	}
 }
@@ -153,7 +154,7 @@ func (s *PoolTestSuite) TestSubmit_Success() {
 		WithMinWorkerCount[int](1),
 		WithMaxWorkerCount[int](2),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -164,11 +165,11 @@ func (s *PoolTestSuite) TestSubmit_Success() {
 	time.Sleep(100 * time.Millisecond)
 
 	err = pool.Submit(ctx, 42)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	select {
 	case val := <-received:
-		assert.Equal(s.T(), 42, val)
+		s.Equal(42, val)
 	case <-time.After(2 * time.Second):
 		s.T().Fatal("Timeout waiting for task to be processed")
 	}
@@ -180,13 +181,13 @@ func (s *PoolTestSuite) TestSubmit_ClosedPool() {
 	}
 
 	pool, err := New(handler)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = pool.Close()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = pool.Submit(context.Background(), 42)
-	assert.ErrorIs(s.T(), err, ErrPoolClosed)
+	s.ErrorIs(err, ErrPoolClosed)
 }
 
 func (s *PoolTestSuite) TestSubmit_CancelledContext() {
@@ -203,7 +204,7 @@ func (s *PoolTestSuite) TestSubmit_CancelledContext() {
 		WithMinWorkerCount[int](1),
 		WithMaxWorkerCount[int](1),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -215,11 +216,11 @@ func (s *PoolTestSuite) TestSubmit_CancelledContext() {
 
 	// Fill the worker (blocks in handler) and the channel buffer (size = cfg.max = 1)
 	err = pool.Submit(ctx, 1) // Worker processes this, blocks on <-block
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 	time.Sleep(50 * time.Millisecond)
 
 	err = pool.Submit(ctx, 2) // This goes into the buffer
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 	time.Sleep(50 * time.Millisecond)
 
 	// Now channel is full, use cancelled context
@@ -227,7 +228,7 @@ func (s *PoolTestSuite) TestSubmit_CancelledContext() {
 	cancelFunc()
 
 	err = pool.Submit(cancelCtx, 3)
-	assert.ErrorIs(s.T(), err, context.Canceled, "Submit with cancelled context should return context.Canceled")
+	s.ErrorIs(err, context.Canceled, "Submit with cancelled context should return context.Canceled")
 }
 
 func (s *PoolTestSuite) TestClose_GracefulShutdown() {
@@ -242,7 +243,7 @@ func (s *PoolTestSuite) TestClose_GracefulShutdown() {
 		WithMinWorkerCount[int](2),
 		WithMaxWorkerCount[int](2),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -253,19 +254,18 @@ func (s *PoolTestSuite) TestClose_GracefulShutdown() {
 	time.Sleep(100 * time.Millisecond)
 
 	for i := range 5 {
-		err := pool.Submit(ctx, i)
-		require.NoError(s.T(), err)
+		s.Require().NoError(pool.Submit(ctx, i))
 	}
 
 	time.Sleep(100 * time.Millisecond)
 
 	err = pool.Close()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	time.Sleep(1 * time.Second)
 	cancel()
 
-	assert.GreaterOrEqual(s.T(), processed.Load(), int32(5))
+	s.GreaterOrEqual(processed.Load(), int32(5))
 }
 
 func (s *PoolTestSuite) TestClose_DoubleClose() {
@@ -274,13 +274,13 @@ func (s *PoolTestSuite) TestClose_DoubleClose() {
 	}
 
 	pool, err := New(handler)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = pool.Close()
-	assert.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = pool.Close()
-	assert.NoError(s.T(), err, "Double close should not error")
+	s.Require().NoError(err, "Double close should not error")
 }
 
 func (s *PoolTestSuite) TestStart_ClosedPool() {
@@ -289,13 +289,13 @@ func (s *PoolTestSuite) TestStart_ClosedPool() {
 	}
 
 	pool, err := New(handler)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = pool.Close()
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = pool.Start(context.Background())
-	assert.ErrorIs(s.T(), err, ErrPoolClosed)
+	s.ErrorIs(err, ErrPoolClosed)
 }
 
 func (s *PoolTestSuite) TestMetrics_ActiveWorkers() {
@@ -308,7 +308,7 @@ func (s *PoolTestSuite) TestMetrics_ActiveWorkers() {
 		WithMinWorkerCount[int](3),
 		WithMaxWorkerCount[int](5),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -319,7 +319,7 @@ func (s *PoolTestSuite) TestMetrics_ActiveWorkers() {
 	time.Sleep(200 * time.Millisecond)
 
 	active := pool.ActiveWorkers()
-	assert.Equal(s.T(), int32(3), active)
+	s.Equal(int32(3), active)
 }
 
 func (s *PoolTestSuite) TestMetrics_BusyWorkers() {
@@ -336,7 +336,7 @@ func (s *PoolTestSuite) TestMetrics_BusyWorkers() {
 		WithMinWorkerCount[int](2),
 		WithMaxWorkerCount[int](2),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -353,7 +353,7 @@ func (s *PoolTestSuite) TestMetrics_BusyWorkers() {
 	<-started
 
 	busy := pool.BusyWorkers()
-	assert.Equal(s.T(), int32(2), busy)
+	s.Equal(int32(2), busy)
 
 	close(wait)
 }
@@ -371,7 +371,7 @@ func (s *PoolTestSuite) TestMetrics_QueueSize() {
 		WithMinWorkerCount[int](1),
 		WithMaxWorkerCount[int](2),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -391,7 +391,7 @@ func (s *PoolTestSuite) TestMetrics_QueueSize() {
 	time.Sleep(100 * time.Millisecond)
 
 	queueSize := pool.QueueSize()
-	assert.GreaterOrEqual(s.T(), queueSize, 0, "Queue size should be non-negative")
+	s.GreaterOrEqual(queueSize, 0, "Queue size should be non-negative")
 }
 
 func (s *PoolTestSuite) TestWorkerLifecycle_ErrorPropagation() {
@@ -405,7 +405,7 @@ func (s *PoolTestSuite) TestWorkerLifecycle_ErrorPropagation() {
 		WithMinWorkerCount[int](1),
 		WithMaxWorkerCount[int](1),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -416,7 +416,7 @@ func (s *PoolTestSuite) TestWorkerLifecycle_ErrorPropagation() {
 	time.Sleep(100 * time.Millisecond)
 
 	err = pool.Submit(ctx, 42)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	time.Sleep(200 * time.Millisecond)
 }
@@ -431,7 +431,7 @@ func (s *PoolTestSuite) TestWorkerLifecycle_ContextCancellation() {
 		WithMinWorkerCount[int](2),
 		WithMaxWorkerCount[int](2),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -441,13 +441,13 @@ func (s *PoolTestSuite) TestWorkerLifecycle_ContextCancellation() {
 	time.Sleep(100 * time.Millisecond)
 
 	active := pool.ActiveWorkers()
-	assert.Equal(s.T(), int32(2), active)
+	s.Equal(int32(2), active)
 
 	cancel()
 	time.Sleep(200 * time.Millisecond)
 
 	active = pool.ActiveWorkers()
-	assert.Equal(s.T(), int32(0), active, "All workers should stop after context cancellation")
+	s.Equal(int32(0), active, "All workers should stop after context cancellation")
 }
 
 func (s *PoolTestSuite) TestAutoscaling_ScaleUp() {
@@ -463,7 +463,7 @@ func (s *PoolTestSuite) TestAutoscaling_ScaleUp() {
 		WithPollingFrequency[int](100*time.Millisecond),
 		WithScalingCooldown[int](50*time.Millisecond),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -480,7 +480,7 @@ func (s *PoolTestSuite) TestAutoscaling_ScaleUp() {
 	time.Sleep(500 * time.Millisecond)
 
 	active := pool.ActiveWorkers()
-	assert.Greater(s.T(), active, int32(1), "Pool should scale up under load")
+	s.Greater(active, int32(1), "Pool should scale up under load")
 }
 
 func (s *PoolTestSuite) TestAutoscaling_ScaleDown() {
@@ -499,7 +499,7 @@ func (s *PoolTestSuite) TestAutoscaling_ScaleDown() {
 		WithPollingFrequency[int](100*time.Millisecond),
 		WithScalingCooldown[int](50*time.Millisecond),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -519,7 +519,7 @@ func (s *PoolTestSuite) TestAutoscaling_ScaleDown() {
 	time.Sleep(2 * time.Second)
 	activeAfterIdle := pool.ActiveWorkers()
 
-	assert.LessOrEqual(s.T(), activeAfterIdle, activeAtPeak, "Pool should scale down after load decreases")
+	s.LessOrEqual(activeAfterIdle, activeAtPeak, "Pool should scale down after load decreases")
 }
 
 func (s *PoolTestSuite) TestAutoscaling_MaxWorkerLimit() {
@@ -536,7 +536,7 @@ func (s *PoolTestSuite) TestAutoscaling_MaxWorkerLimit() {
 		WithPollingFrequency[int](50*time.Millisecond),
 		WithScalingCooldown[int](10*time.Millisecond),
 	)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -553,10 +553,10 @@ func (s *PoolTestSuite) TestAutoscaling_MaxWorkerLimit() {
 	time.Sleep(500 * time.Millisecond)
 
 	active := pool.ActiveWorkers()
-	assert.LessOrEqual(s.T(), active, maxWorkers, "Active workers should not exceed max")
+	s.LessOrEqual(active, maxWorkers, "Active workers should not exceed max")
 }
 
-// TestConcurrentOperations tests thread safety
+// TestConcurrentOperations tests thread safety.
 func TestConcurrentOperations(t *testing.T) {
 	handler := func(ctx context.Context, v int) error {
 		time.Sleep(10 * time.Millisecond)
@@ -589,9 +589,9 @@ func TestConcurrentOperations(t *testing.T) {
 	}
 
 	// Concurrent metric reads
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
-			for j := 0; j < 100; j++ {
+			for range 100 {
 				pool.ActiveWorkers()
 				pool.BusyWorkers()
 				pool.QueueSize()
@@ -600,7 +600,7 @@ func TestConcurrentOperations(t *testing.T) {
 		}()
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		<-done
 	}
 
@@ -611,7 +611,7 @@ func TestConcurrentOperations(t *testing.T) {
 	})
 }
 
-// TestPoolWithDifferentTypes tests generic type support
+// TestPoolWithDifferentTypes tests generic type support.
 func TestPoolWithDifferentTypes(t *testing.T) {
 	t.Run("string pool", func(t *testing.T) {
 		received := make(chan string, 10)

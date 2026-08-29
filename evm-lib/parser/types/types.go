@@ -36,12 +36,15 @@ func (c Confidence) String() string {
 
 type Address [20]byte
 
+// addressHexLen is the length of an address hex string without the 0x prefix.
+const addressHexLen = 2 * len(Address{})
+
 // ZeroAddress is the zero-value address (0x0000...0000).
 var ZeroAddress Address
 
 func AddressFromHex(s string) (Address, error) {
 	s = strings.TrimPrefix(strings.TrimPrefix(s, "0x"), "0X")
-	if len(s) != 40 {
+	if len(s) != addressHexLen {
 		return Address{}, fmt.Errorf("invalid address length: %d", len(s))
 	}
 	b, err := hex.DecodeString(s)

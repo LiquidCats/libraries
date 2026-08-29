@@ -3,7 +3,7 @@ package graceful_test
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -91,7 +91,7 @@ func TestOtherError(t *testing.T) {
 	handler := func(ctx context.Context, v int) error {
 		atomic.AddInt32(&errCount, 1)
 		if v == 1 {
-			return fmt.Errorf("test error")
+			return errors.New("test error")
 		}
 		return nil
 	}

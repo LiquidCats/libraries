@@ -1,3 +1,4 @@
+//nolint:testpackage // white-box: benchmarks reach into unexported pool internals.
 package workers
 
 import (
@@ -10,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// setupBenchPool creates a pool and ensures workers are ready before benchmarking
+// setupBenchPool creates a pool and ensures workers are ready before benchmarking.
 func setupBenchPool(
 	b *testing.B,
 	handler HandleFunc[int],
@@ -38,7 +39,7 @@ func setupBenchPool(
 	return pool, ctx, cancel
 }
 
-// BenchmarkPool_Submit measures raw submit latency with no-op handler
+// BenchmarkPool_Submit measures raw submit latency with no-op handler.
 func BenchmarkPool_Submit(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		return nil
@@ -58,7 +59,7 @@ func BenchmarkPool_Submit(b *testing.B) {
 	})
 }
 
-// BenchmarkPool_SubmitSequential measures sequential submit performance
+// BenchmarkPool_SubmitSequential measures sequential submit performance.
 func BenchmarkPool_SubmitSequential(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		return nil
@@ -75,7 +76,7 @@ func BenchmarkPool_SubmitSequential(b *testing.B) {
 	}
 }
 
-// BenchmarkPool_Throughput measures actual processing throughput
+// BenchmarkPool_Throughput measures actual processing throughput.
 func BenchmarkPool_Throughput(b *testing.B) {
 	var processed atomic.Int64
 	done := make(chan struct{})
@@ -95,7 +96,7 @@ func BenchmarkPool_Throughput(b *testing.B) {
 	start := time.Now()
 
 	// Submit all work
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		_ = pool.Submit(ctx, i)
 	}
 
@@ -114,7 +115,7 @@ func BenchmarkPool_Throughput(b *testing.B) {
 	b.ReportMetric(float64(b.N)/elapsed.Seconds(), "ops/sec")
 }
 
-// BenchmarkPool_CPUBoundWork measures performance with CPU-bound work
+// BenchmarkPool_CPUBoundWork measures performance with CPU-bound work.
 func BenchmarkPool_CPUBoundWork(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		// Simulate CPU work
@@ -136,7 +137,7 @@ func BenchmarkPool_CPUBoundWork(b *testing.B) {
 	}
 }
 
-// BenchmarkPool_ConcurrentSubmit measures concurrent submit performance
+// BenchmarkPool_ConcurrentSubmit measures concurrent submit performance.
 func BenchmarkPool_ConcurrentSubmit(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		return nil
@@ -156,7 +157,7 @@ func BenchmarkPool_ConcurrentSubmit(b *testing.B) {
 	})
 }
 
-// BenchmarkPool_MetricsAccess measures metrics method performance
+// BenchmarkPool_MetricsAccess measures metrics method performance.
 func BenchmarkPool_MetricsAccess(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		time.Sleep(1 * time.Millisecond)
@@ -183,7 +184,7 @@ func BenchmarkPool_MetricsAccess(b *testing.B) {
 	}
 }
 
-// BenchmarkPool_MemoryAllocation measures allocations per submit
+// BenchmarkPool_MemoryAllocation measures allocations per submit.
 func BenchmarkPool_MemoryAllocation(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		return nil
@@ -202,7 +203,7 @@ func BenchmarkPool_MemoryAllocation(b *testing.B) {
 	}
 }
 
-// BenchmarkPool_Scaling measures autoscaling overhead
+// BenchmarkPool_Scaling measures autoscaling overhead.
 func BenchmarkPool_Scaling(b *testing.B) {
 	configs := []struct {
 		name string
@@ -229,14 +230,14 @@ func BenchmarkPool_Scaling(b *testing.B) {
 			defer cancel()
 
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for i := range b.N {
 				_ = pool.Submit(ctx, i)
 			}
 		})
 	}
 }
 
-// BenchmarkPool_Creation measures pool creation time
+// BenchmarkPool_Creation measures pool creation time.
 func BenchmarkPool_Creation(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		return nil
@@ -251,7 +252,7 @@ func BenchmarkPool_Creation(b *testing.B) {
 	}
 }
 
-// BenchmarkPool_StartStop measures pool lifecycle overhead
+// BenchmarkPool_StartStop measures pool lifecycle overhead.
 func BenchmarkPool_StartStop(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		return nil
@@ -275,7 +276,7 @@ func BenchmarkPool_StartStop(b *testing.B) {
 	}
 }
 
-// BenchmarkPool_SubmitWithBackpressure measures submit latency when queue is nearly full
+// BenchmarkPool_SubmitWithBackpressure measures submit latency when queue is nearly full.
 func BenchmarkPool_SubmitWithBackpressure(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		// Slow processing to create backpressure
@@ -308,7 +309,7 @@ func BenchmarkPool_SubmitWithBackpressure(b *testing.B) {
 	}
 }
 
-// BenchmarkPool_ComparePoolSizes compares different pool configurations
+// BenchmarkPool_ComparePoolSizes compares different pool configurations.
 func BenchmarkPool_ComparePoolSizes(b *testing.B) {
 	configs := []struct {
 		name string
@@ -346,7 +347,7 @@ func BenchmarkPool_ComparePoolSizes(b *testing.B) {
 	}
 }
 
-// BenchmarkPool_ErrorHandling measures error path performance
+// BenchmarkPool_ErrorHandling measures error path performance.
 func BenchmarkPool_ErrorHandling(b *testing.B) {
 	var errCount atomic.Int64
 
@@ -372,7 +373,7 @@ func BenchmarkPool_ErrorHandling(b *testing.B) {
 	b.ReportMetric(float64(errCount.Load()), "errors")
 }
 
-// BenchmarkPool_ChannelVsPool compares raw channel with pool
+// BenchmarkPool_ChannelVsPool compares raw channel with pool.
 func BenchmarkPool_ChannelVsPool(b *testing.B) {
 	b.Run("raw_channel", func(b *testing.B) {
 		dataCh := make(chan int, 100)
@@ -387,7 +388,7 @@ func BenchmarkPool_ChannelVsPool(b *testing.B) {
 		}()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for i := range b.N {
 			dataCh <- i
 		}
 		b.StopTimer()
@@ -408,13 +409,13 @@ func BenchmarkPool_ChannelVsPool(b *testing.B) {
 		defer cancel()
 
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for i := range b.N {
 			_ = pool.Submit(ctx, i)
 		}
 	})
 }
 
-// BenchmarkPool_ContextCancellation measures context handling overhead
+// BenchmarkPool_ContextCancellation measures context handling overhead.
 func BenchmarkPool_ContextCancellation(b *testing.B) {
 	handler := func(ctx context.Context, v int) error {
 		return nil
@@ -427,8 +428,8 @@ func BenchmarkPool_ContextCancellation(b *testing.B) {
 	defer cancel()
 
 	for i := 0; b.Loop(); i++ {
-		ctx, cancel := context.WithCancel(context.Background())
-		_ = pool.Submit(ctx, i)
-		cancel()
+		submitCtx, submitCancel := context.WithCancel(context.Background())
+		_ = pool.Submit(submitCtx, i)
+		submitCancel()
 	}
 }

@@ -94,7 +94,7 @@ func TestSubjectNotifyMultipleObservers(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(count)
 	observers := make([]*fakeObserver, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		fo := &fakeObserver{wg: wg}
 		observers[i] = fo
 		subj.Register(eventName, fo)

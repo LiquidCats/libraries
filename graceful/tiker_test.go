@@ -3,7 +3,7 @@ package graceful_test
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -70,7 +70,7 @@ func TestTickerNonFailureErrorLogged(t *testing.T) {
 	runner := func(ctx context.Context) error {
 		atomic.AddInt32(&tickCnt, 1)
 		if atomic.LoadInt32(&tickCnt) == 1 {
-			return fmt.Errorf("test error")
+			return errors.New("test error")
 		}
 		return nil
 	}

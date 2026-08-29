@@ -2,6 +2,7 @@ package codec
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/LiquidCats/libraries/evm-lib/parser/types"
 )
@@ -50,26 +51,34 @@ func (d *Multicall3ValueDecoder) Decode(sel types.Selector, params types.InputPa
 	out := &types.ParsedInputData{Selector: sel}
 	headBase := arrOff + wordSize
 	for i := range count {
-		relOff, err := ReadOffsetAt(params, headBase+i*wordSize)
+		var relOff int
+		relOff, err = ReadOffsetAt(params, headBase+i*wordSize)
 		if err != nil {
 			return nil, fmt.Errorf("multicall3: tuple[%d] offset: %w", i, err)
 		}
 		structBase := headBase + relOff
 
-		target, err := ReadAddressAt(params, structBase+0*wordSize)
+		var target types.Address
+		target, err = ReadAddressAt(params, structBase+0*wordSize)
 		if err != nil {
 			return nil, fmt.Errorf("multicall3: tuple[%d] target: %w", i, err)
 		}
+
 		// word 1 is bool allowFailure — skip
-		value, err := ReadUint256At(params, structBase+2*wordSize)
+		var value *big.Int
+		value, err = ReadUint256At(params, structBase+2*wordSize)
 		if err != nil {
 			return nil, fmt.Errorf("multicall3: tuple[%d] value: %w", i, err)
 		}
-		bytesRelOff, err := ReadOffsetAt(params, structBase+3*wordSize)
+
+		var bytesRelOff int
+		bytesRelOff, err = ReadOffsetAt(params, structBase+3*wordSize)
 		if err != nil {
 			return nil, fmt.Errorf("multicall3: tuple[%d] bytes offset: %w", i, err)
 		}
-		callData, err := ReadDynamicBytesAt(params, structBase+bytesRelOff)
+
+		var callData []byte
+		callData, err = ReadDynamicBytesAt(params, structBase+bytesRelOff)
 		if err != nil {
 			return nil, fmt.Errorf("multicall3: tuple[%d] callData: %w", i, err)
 		}
@@ -83,8 +92,8 @@ func (d *Multicall3ValueDecoder) Decode(sel types.Selector, params types.InputPa
 		}
 
 		if d.sub != nil && len(callData) >= 4 {
-			inner, err := d.sub.ParseBytes(callData)
-			if err == nil && inner != nil {
+			inner, subErr := d.sub.ParseBytes(callData)
+			if subErr == nil && inner != nil {
 				out.Transfers = append(out.Transfers, inner.Transfers...)
 			}
 		}

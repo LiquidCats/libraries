@@ -2,6 +2,7 @@ package codec
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/LiquidCats/libraries/evm-lib/parser/types"
 )
@@ -50,11 +51,14 @@ func (d *DisperseDecoder) Decode(sel types.Selector, params types.InputParams) (
 
 	transfers := make([]types.Transfer, 0, recipientsLen)
 	for i := range recipientsLen {
-		addr, err := ReadAddressAt(params, recipientsOff+wordSize+i*wordSize)
+		var addr types.Address
+		addr, err = ReadAddressAt(params, recipientsOff+wordSize+i*wordSize)
 		if err != nil {
 			return nil, fmt.Errorf("disperse: recipient[%d]: %w", i, err)
 		}
-		val, err := ReadUint256At(params, valuesOff+wordSize+i*wordSize)
+
+		var val *big.Int
+		val, err = ReadUint256At(params, valuesOff+wordSize+i*wordSize)
 		if err != nil {
 			return nil, fmt.Errorf("disperse: value[%d]: %w", i, err)
 		}

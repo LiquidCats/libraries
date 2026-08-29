@@ -51,13 +51,13 @@ func (o *Subject) worker(ctx context.Context) error {
 				continue
 			}
 
-			group, ctx := errgroup.WithContext(ctx)
+			group, groupCtx := errgroup.WithContext(ctx)
 
 			for _, h := range handlers {
 				handler := h
 
 				group.Go(func() error {
-					return handler.Update(ctx, event.Data)
+					return handler.Update(groupCtx, event.Data)
 				})
 			}
 
@@ -73,7 +73,7 @@ func (o *Subject) Run(ctx context.Context) error {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	for i := 0; i < o.workersCount; i++ {
+	for range o.workersCount {
 		group.Go(func() error {
 			return o.worker(ctx)
 		})

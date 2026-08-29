@@ -24,27 +24,33 @@ func (p *NetParams) IsBech32SegwitPrefix(prefix string) bool {
 	return (p.Bech32HRPSegwit + "1") == prefix
 }
 
-var BitcoinMainNet = &NetParams{
-	Net:              0xd9b4bef9,
-	PubKeyHashAddrID: 0x00,
-	ScriptHashAddrID: 0x05,
-	Bech32HRPSegwit:  "bc",
-}
-var BitcoinRegNet = &NetParams{
-	Net:              0xdab5bffa,
-	PubKeyHashAddrID: 0x6f,
-	ScriptHashAddrID: 0xc4,
-	Bech32HRPSegwit:  "bcrt",
-}
-var BitcoinTestNet3 = &NetParams{
-	Net:              0x0709110b,
-	PubKeyHashAddrID: 0x6f,
-	ScriptHashAddrID: 0xc4,
-	Bech32HRPSegwit:  "tb",
-}
-var BitcoinTestNet4 = &NetParams{
-	Net:              0x283f161c,
-	PubKeyHashAddrID: 0x6f,
-	ScriptHashAddrID: 0xc4,
-	Bech32HRPSegwit:  "tb",
-}
+// The values below are fixed by the Bitcoin protocol, not tunable numbers; the
+// field names are their documentation.
+//
+//nolint:mnd // protocol constants
+var (
+	BitcoinMainNet = &NetParams{
+		Net:              0xd9b4bef9,
+		PubKeyHashAddrID: 0x00,
+		ScriptHashAddrID: 0x05,
+		Bech32HRPSegwit:  "bc",
+	}
+	BitcoinRegNet = &NetParams{
+		Net:              0xdab5bffa,
+		PubKeyHashAddrID: 0x6f,
+		ScriptHashAddrID: 0xc4,
+		Bech32HRPSegwit:  "bcrt",
+	}
+	BitcoinTestNet3 = &NetParams{
+		Net:              0x0709110b,
+		PubKeyHashAddrID: 0x6f,
+		ScriptHashAddrID: 0xc4,
+		Bech32HRPSegwit:  "tb",
+	}
+	BitcoinTestNet4 = &NetParams{
+		Net:              0x283f161c,
+		PubKeyHashAddrID: 0x6f,
+		ScriptHashAddrID: 0xc4,
+		Bech32HRPSegwit:  "tb",
+	}
+)

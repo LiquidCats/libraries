@@ -36,11 +36,11 @@ func (c *Chain) Add(d Decoder) { c.decoders = append(c.decoders, d) }
 // ParseBytes dispatches raw calldata (selector + params) to the first
 // decoder whose CanDecode reports a match.
 func (c *Chain) ParseBytes(raw []byte) (*types.ParsedInputData, error) {
-	if len(raw) < 4 {
+	if len(raw) < selectorSize {
 		return nil, fmt.Errorf("chain: calldata shorter than selector (%d bytes)", len(raw))
 	}
-	sel := types.SelectorFromBytes(raw[:4])
-	params := types.InputParams(raw[4:])
+	sel := types.SelectorFromBytes(raw[:selectorSize])
+	params := types.InputParams(raw[selectorSize:])
 
 	for _, dec := range c.decoders {
 		if !dec.CanDecode(sel) {

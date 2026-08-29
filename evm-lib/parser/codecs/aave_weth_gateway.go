@@ -18,6 +18,9 @@ type AaveWETHGatewayDecoder struct{}
 
 func NewAaveWETHGatewayDecoder() *AaveWETHGatewayDecoder { return &AaveWETHGatewayDecoder{} }
 
+// aaveWordTo is the calldata word holding the `to` recipient.
+const aaveWordTo = 2
+
 var selAaveWithdrawETH = types.Selector{0x80, 0x50, 0x0d, 0x20}
 
 func (d *AaveWETHGatewayDecoder) CanDecode(s types.Selector) bool {
@@ -34,7 +37,7 @@ func (d *AaveWETHGatewayDecoder) Decode(sel types.Selector, params types.InputPa
 	if err != nil {
 		return nil, fmt.Errorf("aave_weth_gateway: amount: %w", err)
 	}
-	to, err := ReadAddress(params, 2)
+	to, err := ReadAddress(params, aaveWordTo)
 	if err != nil {
 		return nil, fmt.Errorf("aave_weth_gateway: to: %w", err)
 	}

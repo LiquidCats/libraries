@@ -44,7 +44,7 @@ func TestScheduleRunnerRunsTask(t *testing.T) {
 	require.Equal(t, context.Canceled, err)
 
 	// The task should have run at least once.
-	assert.Greater(t, atomic.LoadInt32(&task.runCount), int32(0), "task was not executed")
+	assert.Positive(t, atomic.LoadInt32(&task.runCount), "task was not executed")
 }
 
 func TestScheduleRunnerMultipleTasks(t *testing.T) {
@@ -67,8 +67,8 @@ func TestScheduleRunnerMultipleTasks(t *testing.T) {
 	require.Equal(t, context.Canceled, err)
 
 	// Both tasks should have run at least once.
-	assert.Greater(t, atomic.LoadInt32(&task1.runCount), int32(0), "task1 was not executed")
-	assert.Greater(t, atomic.LoadInt32(&task2.runCount), int32(0), "task2 was not executed")
+	assert.Positive(t, atomic.LoadInt32(&task1.runCount), "task1 was not executed")
+	assert.Positive(t, atomic.LoadInt32(&task2.runCount), "task2 was not executed")
 }
 
 func TestScheduleRunnerContextCancel(t *testing.T) {

@@ -58,10 +58,16 @@ func (d *GnosisMultiSendDecoder) Decode(sel types.Selector, params types.InputPa
 		if dataLenWord[0] != 0 || dataLenWord[1] != 0 {
 			return nil, fmt.Errorf("gnosis_multisend: unreasonable dataLen at byte %d", i)
 		}
+		// Compare in uint64 before narrowing: a dataLen above math.MaxInt would
+		// wrap on conversion and turn the bounds check into a no-op.
 		dataLen := binary.BigEndian.Uint64(dataLenWord[24:32])
-		if i+entryHeader+int(dataLen) > len(blob) {
+		//nolint:gosec // len(blob) >= i+entryHeader per the check above, so this cannot wrap
+		remaining := uint64(len(blob) - i - entryHeader)
+		if dataLen > remaining {
 			return nil, fmt.Errorf("gnosis_multisend: data overflow at byte %d", i)
 		}
+		//nolint:gosec // dataLen <= remaining <= len(blob), so it fits in int
+		dataSize := int(dataLen)
 
 		if value.Sign() > 0 {
 			out.Transfers = append(out.Transfers, types.Transfer{
@@ -70,7 +76,7 @@ func (d *GnosisMultiSendDecoder) Decode(sel types.Selector, params types.InputPa
 				Confidence: types.Deterministic,
 			})
 		}
-		i += entryHeader + int(dataLen)
+		i += entryHeader + dataSize
 	}
 
 	return out, nil

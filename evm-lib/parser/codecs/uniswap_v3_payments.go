@@ -28,6 +28,10 @@ type UniswapV3PaymentsDecoder struct{}
 
 func NewUniswapV3PaymentsDecoder() *UniswapV3PaymentsDecoder { return &UniswapV3PaymentsDecoder{} }
 
+// v3WordFeeRecipient is the calldata word holding the fee recipient of
+// unwrapWETH9WithFee.
+const v3WordFeeRecipient = 3
+
 var (
 	selUnwrapWETH9        = types.Selector{0x49, 0x40, 0x4b, 0x7c}
 	selUnwrapWETH9WithFee = types.Selector{0x9b, 0x2c, 0x0a, 0x37}
@@ -38,7 +42,10 @@ func (d *UniswapV3PaymentsDecoder) CanDecode(s types.Selector) bool {
 	return s == selUnwrapWETH9 || s == selUnwrapWETH9WithFee || s == selRefundETH
 }
 
-func (d *UniswapV3PaymentsDecoder) Decode(sel types.Selector, params types.InputParams) (*types.ParsedInputData, error) {
+func (d *UniswapV3PaymentsDecoder) Decode(
+	sel types.Selector,
+	params types.InputParams,
+) (*types.ParsedInputData, error) {
 	switch sel {
 	case selUnwrapWETH9:
 		amountMin, err := ReadUint256(params, 0)
@@ -67,7 +74,7 @@ func (d *UniswapV3PaymentsDecoder) Decode(sel types.Selector, params types.Input
 		if err != nil {
 			return nil, fmt.Errorf("uniswap_v3.unwrapWETH9WithFee recipient: %w", err)
 		}
-		feeRecipient, err := ReadAddress(params, 3)
+		feeRecipient, err := ReadAddress(params, v3WordFeeRecipient)
 		if err != nil {
 			return nil, fmt.Errorf("uniswap_v3.unwrapWETH9WithFee feeRecipient: %w", err)
 		}
@@ -81,7 +88,7 @@ func (d *UniswapV3PaymentsDecoder) Decode(sel types.Selector, params types.Input
 
 	case selRefundETH:
 		return &types.ParsedInputData{
-			Selector: sel,
+			Selector:  sel,
 			Transfers: []types.Transfer{{Confidence: types.Possible}},
 		}, nil
 	}

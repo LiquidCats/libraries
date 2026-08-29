@@ -10,6 +10,14 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const (
+	defaultHTTPPort     = "8080"
+	defaultReadTimeout  = 60 * time.Second
+	defaultWriteTimeout = 60 * time.Second
+	// shutdownTimeout bounds in-flight requests once the group context is done.
+	shutdownTimeout = 5 * time.Second
+)
+
 type server struct {
 	Port         string
 	ReadTimeout  time.Duration
@@ -38,9 +46,9 @@ func WithWriteTimeout(timeout time.Duration) ServerOpt {
 
 func Server(router http.Handler, opts ...ServerOpt) Runner {
 	cfg := &server{
-		Port:         "8080",
-		ReadTimeout:  60 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		Port:         defaultHTTPPort,
+		ReadTimeout:  defaultReadTimeout,
+		WriteTimeout: defaultWriteTimeout,
 	}
 
 	for _, opt := range opts {
@@ -69,7 +77,7 @@ func Server(router http.Handler, opts ...ServerOpt) Runner {
 		group.Go(func() error {
 			<-groupCtx.Done()
 
-			srvCtx, cancel := context.WithTimeout(context.WithoutCancel(groupCtx), 5*time.Second)
+			srvCtx, cancel := context.WithTimeout(context.WithoutCancel(groupCtx), shutdownTimeout)
 			defer cancel()
 
 			if err := server.Shutdown(srvCtx); err != nil {

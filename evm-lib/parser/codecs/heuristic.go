@@ -17,6 +17,14 @@ import (
 //
 // Register this decoder LAST in the parser chain so it only fires for
 // selectors that no specific decoder recognised.
+const (
+	// defaultMaxTransfers caps the guesses returned per call.
+	defaultMaxTransfers = 64
+	// maxValueBits rejects values at or above 2^240, which keeps the
+	// heuristic from latching onto words that are addresses or hashes.
+	maxValueBits = 240
+)
+
 type HeuristicDecoder struct {
 	// maxTransfers caps the number of guesses returned per call. Real
 	// internal-transfer-bearing calldata rarely contains more than a few
@@ -33,9 +41,9 @@ type HeuristicDecoder struct {
 
 func NewHeuristicDecoder() *HeuristicDecoder {
 	return &HeuristicDecoder{
-		maxTransfers: 64,
+		maxTransfers: defaultMaxTransfers,
 		minValue:     new(big.Int),
-		maxValue:     new(big.Int).Lsh(big.NewInt(1), 240),
+		maxValue:     new(big.Int).Lsh(big.NewInt(1), maxValueBits),
 	}
 }
 

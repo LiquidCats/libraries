@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [evm-lib, graceful, observer, utxo-lib, workers]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          # go.* not go.sum — evm-lib and utxo-lib have no deps, so no go.sum to match
+          cache-dependency-path: ${{ matrix.module }}/go.*
+
+      - name: Test
+        working-directory: ${{ matrix.module }}
+        run: go test -race -vet=all ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          working-directory: ${{ matrix.module }}
+          version: v2.13.2
+          # single shared config at the repo root; ./ would resolve inside the module dir
+          args: "--config=${{ github.workspace }}/.golangci.yaml"

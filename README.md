@@ -9,6 +9,7 @@ no umbrella module.
 | [`graceful`](graceful) | `github.com/LiquidCats/libraries/graceful` | Run HTTP/gRPC servers, cron, tickers and channel workers under one context, shut them all down on signal. |
 | [`workers`](workers) | `github.com/LiquidCats/libraries/workers` | Generic autoscaling worker pool. |
 | [`observer`](observer) | `github.com/LiquidCats/libraries/observer` | Event subject/observer fan-out with a fixed worker count. |
+| [`jsonrpc`](jsonrpc) | `github.com/LiquidCats/libraries/jsonrpc` | Generic JSON-RPC 2.0 client over a tuned `http.Client`. |
 | [`evm-lib`](evm-lib) | `github.com/LiquidCats/libraries/evm-lib` | Decode EVM transaction calldata into value transfers, no ABI or node required. |
 | [`utxo-lib`](utxo-lib) | `github.com/LiquidCats/libraries/utxo-lib` | Bitcoin network parameters (magic bytes, address prefixes). |
 

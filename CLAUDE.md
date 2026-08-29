@@ -5,9 +5,9 @@ what each library does and how it is used.
 
 ## Layout
 
-Five independent Go modules, one per directory — `evm-lib`, `graceful`,
-`observer`, `utxo-lib`, `workers`. There is no root module and no `go.work`
-(it is gitignored on purpose).
+Six independent Go modules, one per directory — `evm-lib`, `graceful`,
+`jsonrpc`, `observer`, `utxo-lib`, `workers`. There is no root module and no
+`go.work` (it is gitignored on purpose).
 
 Consequences:
 

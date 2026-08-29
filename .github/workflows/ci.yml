@@ -8,26 +8,50 @@ on:
 permissions:
   contents: read
 
+env:
+  # Without this, a module whose `go` directive is newer than the installed
+  # toolchain silently downloads the newer one — every job would then test the
+  # same Go version and the matrix below would prove nothing.
+  GOTOOLCHAIN: local
+
 jobs:
-  ci:
-    name: ${{ matrix.module }}
+  test:
+    name: test ${{ matrix.module }} (go ${{ matrix.go }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        module: [evm-lib, graceful, observer, utxo-lib, workers]
+        module: [evm-lib, graceful, observer, utxo-lib, workers, jsonrpc]
+        go: ["1.26", "1.27"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: ${{ matrix.module }}/go.mod
+          go-version: ${{ matrix.go }}
           # go.* not go.sum — evm-lib and utxo-lib have no deps, so no go.sum to match
           cache-dependency-path: ${{ matrix.module }}/go.*
 
       - name: Test
         working-directory: ${{ matrix.module }}
         run: go test -race -vet=all ./...
+
+  lint:
+    name: lint ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [evm-lib, graceful, observer, utxo-lib, workers, jsonrpc]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Lint is version-independent, so it runs once per module against the
+      # version that module declares.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.*
 
       - name: Lint
         uses: golangci/golangci-lint-action@v9

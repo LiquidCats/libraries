@@ -37,6 +37,7 @@ DOCKER_RUN = $(DOCKER) run --rm \
 	--volume "$(GOMODCACHE_DIR):/gomodcache" \
 	--env GOCACHE=/gocache \
 	--env GOMODCACHE=/gomodcache \
+	--env GOPATH=/tmp/gopath \
 	--env GOTOOLCHAIN=local \
 	--env HOME=/tmp
 

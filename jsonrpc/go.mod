@@ -1,6 +1,6 @@
 module github.com/LiquidCats/libraries/jsonrpc
 
-go 1.25.4
+go 1.27.0
 
 require (
 	github.com/bytedance/sonic v1.15.2

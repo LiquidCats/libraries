@@ -21,8 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [evm-lib, graceful, observer, utxo-lib, workers, jsonrpc]
-        go: ["1.26", "1.27"]
+        module: [evm-lib, graceful, observer, utxo-lib, workers, jsonrpc, db]
+        go: ["1.27"]
     steps:
       - uses: actions/checkout@v4
 
@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [evm-lib, graceful, observer, utxo-lib, workers, jsonrpc]
+        module: [evm-lib, graceful, observer, utxo-lib, workers, jsonrpc, db]
     steps:
       - uses: actions/checkout@v4
 

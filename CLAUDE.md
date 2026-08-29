@@ -5,7 +5,7 @@ what each library does and how it is used.
 
 ## Layout
 
-Six independent Go modules, one per directory — `evm-lib`, `graceful`,
+Seven independent Go modules, one per directory — `db`, `evm-lib`, `graceful`,
 `jsonrpc`, `observer`, `utxo-lib`, `workers`. There is no root module and no
 `go.work` (it is gitignored on purpose).
 
@@ -16,9 +16,10 @@ Consequences:
 - Modules do not import each other. Keep it that way unless asked — a
   cross-module import means the consumer needs a `require` plus a released tag
   of the dependency, which is why they are separate modules.
-- Each module pins its own Go version (currently 1.25.0 through 1.27.0). Check
-  the target module's `go.mod` before reaching for a recent language or stdlib
-  feature; what compiles in `evm-lib` may not compile in `observer`.
+- Every module is on `go 1.27.0`. They are pinned per module rather than
+  centrally, so a bump means editing all seven `go.mod` files (`make tidy`
+  afterwards) — and raising any of them past `GO_IMAGE` in the Makefile breaks
+  every target until that is bumped too.
 - Releases are tagged `<module>/vX.Y.Z`. A bare `vX.Y.Z` tag does not publish
   anything.
 
@@ -60,12 +61,19 @@ Things worth knowing before debugging a failure:
 
 Both targets must be clean — they are the two CI steps. `graceful` and `workers` tests
 exercise real timing and take ~7s and ~15s; that is normal, not a hang.
-`evm-lib` and `utxo-lib` currently have no tests, so `go test` only builds and
-vets them.
+`db`, `evm-lib` and `utxo-lib` currently have no tests, so `go test` only builds
+and vets them.
 
-CI is `.github/workflows/ci.yml`: one matrix job per module, Go version read
-from that module's `go.mod`. **Adding a module means adding it to the
-`matrix.module` list** — nothing discovers directories automatically.
+CI is `.github/workflows/ci.yml`, two jobs: `test` runs each module against
+every Go version in `matrix.go` (currently just 1.27), and `lint` runs once per
+module using the version from its own `go.mod`. **Adding a module means adding
+it to both `matrix.module` lists** — nothing discovers directories
+automatically.
+
+`GOTOOLCHAIN: local` is set workflow-wide, so a module cannot silently upgrade
+past the matrix version. If an older version is ever added back to `matrix.go`,
+every module whose `go` directive is newer than it needs an `exclude` for that
+pair, or that job fails outright instead of being skipped.
 
 ## Conventions
 
@@ -76,8 +84,12 @@ from that module's `go.mod`. **Adding a module means adding it to the
 - Constructors validate and return sentinel errors (see `workers/errors.go`).
   Do not panic on bad configuration.
 - `graceful` wraps errors with `rotisserie/eris` and logs via `rs/zerolog`;
-  `workers` and `observer` use stdlib `errors` and no logger. Match the module
-  you are editing instead of unifying them.
+  `workers` and `observer` use stdlib `errors` and no logger; `db` uses
+  `fmt.Errorf` with `%w`. Match the module you are editing instead of unifying
+  them.
+- `db` stores the `pgx.Tx` on the context. Type assertions pulling it back out
+  must use the comma-ok form and return `ErrNoTransaction` — a bare assertion
+  panics on any context that did not come from `Begin`.
 - Concurrency is `golang.org/x/sync/errgroup` throughout: the first error
   cancels the context and unwinds everything.
 - `graceful`, `workers` and `observer` have no dependency on any chain code.

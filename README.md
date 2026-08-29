@@ -10,6 +10,7 @@ no umbrella module.
 | [`workers`](workers) | `github.com/LiquidCats/libraries/workers` | Generic autoscaling worker pool. |
 | [`observer`](observer) | `github.com/LiquidCats/libraries/observer` | Event subject/observer fan-out with a fixed worker count. |
 | [`jsonrpc`](jsonrpc) | `github.com/LiquidCats/libraries/jsonrpc` | Generic JSON-RPC 2.0 client over a tuned `http.Client`. |
+| [`db`](db) | `github.com/LiquidCats/libraries/db` | Postgres transaction manager and `io/fs` migration runner on `pgx`. |
 | [`evm-lib`](evm-lib) | `github.com/LiquidCats/libraries/evm-lib` | Decode EVM transaction calldata into value transfers, no ABI or node required. |
 | [`utxo-lib`](utxo-lib) | `github.com/LiquidCats/libraries/utxo-lib` | Bitcoin network parameters (magic bytes, address prefixes). |
 
@@ -127,12 +128,37 @@ params.IsBech32SegwitPrefix("bc1")
 
 `BitcoinMainNet`, `BitcoinTestNet3`, `BitcoinTestNet4`, `BitcoinRegNet`.
 
+## db
+
+`TxManager` carries a `pgx.Tx` on the context; `QueriesTxManager[T]` wraps a
+generated `Queries` type so a callback runs against the transaction and is
+rolled back on any error.
+
+```go
+mgr := postgres.NewQueriesTxManager(postgres.NewTxManager(pool), sqlcQueries)
+
+err := mgr.Transactional(ctx, func(txCtx context.Context) error {
+    q := mgr.GetQueries(txCtx)  // transaction-scoped
+    return q.InsertThing(txCtx, thing)
+}, postgres.WithIsoLevel(postgres.RepeatableRead))
+```
+
+`Commit`, `Rollback` and `Transactional` return `ErrNoTransaction` if the
+context did not come from `Begin`. Migrations run from any `fs.FS` with a
+`migrations/` directory:
+
+```go
+//go:embed migrations/*.sql
+var migrations embed.FS
+
+err := postgres.MigrateUp(ctx, pool, migrations)
+```
+
 ## Development
 
 Modules are released independently: a tag must be prefixed with the module
-directory (`graceful/v1.2.0`) for `go get` to resolve it. They also pin
-different Go versions — check the module's `go.mod` before using a new language
-feature.
+directory (`graceful/v1.2.0`) for `go get` to resolve it. All of them require
+Go 1.27.
 
 The root `Makefile` runs across every module. Docker is the only requirement —
 the Go toolchain and linter come from pinned images, so nothing has to be

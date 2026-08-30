@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
 var (
 	ErrUnparsableConfigration = errors.New("unparsable configuration")
 	ErrDatabaseRequired        = errors.New("database required")

@@ -10,11 +10,11 @@ import (
 
 var (
 	ErrUnparsableConfigration = errors.New("unparsable configuration")
-	ErrDatabaseRequired        = errors.New("database required")
-	ErrUserRequired            = errors.New("user required")
-	ErrPasswordRequired        = errors.New("password required")
-	ErrHostRequired            = errors.New("host required")
-	ErrPortRequired            = errors.New("port required")
+	ErrDatabaseRequired       = errors.New("database required")
+	ErrUserRequired           = errors.New("user required")
+	ErrPasswordRequired       = errors.New("password required")
+	ErrHostRequired           = errors.New("host required")
+	ErrPortRequired           = errors.New("port required")
 )
 
 type config struct {

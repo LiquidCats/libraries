@@ -1,177 +1,56 @@
-# JSON‑RPC Client for Go
+# JSON-RPC client for Go
 
-A lightweight, type‑safe client that implements the JSON‑RPC 2.0 specification over HTTP.  
-It uses the high‑performance **sonic** JSON library for encoding/decoding and
-the robust **eris** package for error handling.
+A generic HTTP client using Sonic for JSON encoding and decoding.
 
-## Features
-
-- Fully typed requests & responses via generics.
-- Zero‑alloc JSON with *sonic*.
-- Extensible options: request‑level (headers, context, content‑type) and client‑level.
-- Production‑ready HTTP client with tuned timeouts, connection pooling and HTTP/2.
-- Rich error handling: JSON‑RPC errors are wrapped in `jsonrpc.RPCError`.
-
-## Installation
-
-```bash
-go get github.com/LiquidCats/paw/lib/jsonrpc
+```sh
+go get github.com/LiquidCats/libraries/jsonrpc/v2
 ```
-
-> The module is published under the `v2` path. Use that import path in your
-> projects.
-
-## Usage
-
-### 1. Create a request
 
 ```go
 package main
 
 import (
-	"fmt"
-	"log"
+    "context"
+    "log"
+    "time"
 
-	"github.com/LiquidCats/paw/lib/jsonrpc"
+    "github.com/LiquidCats/libraries/jsonrpc/v2"
 )
 
 func main() {
-	type Params struct{ Value int }
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
 
-	// Create a request that expects a string result.
-	req := jsonrpc.NewRequest[Params, string](
-		"exampleMethod",
-		Params{Value: 123},
-	)
-
-	// Prepare the request for a specific endpoint.
-	pReq := req.Prepare("https://your.rpc")
-
-	// Execute with the library’s default HTTP client.
-	result, err := pReq.Execute(nil)
-	if err != nil {
-		log.Fatalf("request failed: %v", err)
-	}
-
-	fmt.Printf("Result: %s\n", *result)
+    request := jsonrpc.NewRequest[string]("exampleMethod", []any{123})
+    result, err := request.Execute(ctx, "https://your.rpc",
+        jsonrpc.WithHeader[string]("Authorization", "Bearer token"),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.Print(result)
 }
 ```
 
-### 2. Customising a request
+`NewRequest[Result]` accepts `WithRPCid[Result]` and `WithRPCVersion[Result]`. The default version is `2.0`. `Execute` accepts:
 
-```go
-package main
+- `WithHeader[Result](key, value)`: appends a header value. Content-Type defaults to `application/json` unless supplied.
+- `WithClient[Result](client)`: uses a custom HTTP client, including its timeout and transport settings. Nil leaves the current client unchanged.
+- `WithMaxResponseBytes[Result](limit)`: overrides the 64-MiB default limit on the decompressed response, including trailing whitespace. Limits must be positive and less than `math.MaxInt64`.
 
-import (
-	"context"
-	"log"
+The default client has a 30-second overall HTTP timeout, a 10-second response-header timeout, and 5-second dial/TLS timeouts. A custom client replaces these defaults; configure its timeout or pass a context deadline. The HTTP timeout covers network/body reading, not arbitrary custom JSON unmarshaling code. For unusually large or slow responses, supply an appropriately configured client and response-size limit.
 
-	"github.com/LiquidCats/paw/lib/jsonrpc"
-)
+Non-2xx final HTTP statuses return errors without decoding the body. For successful HTTP statuses, a JSON-RPC error is returned as `*jsonrpc.RPCError`; use `errors.As` to inspect its code and message. Transport/read errors preserve their causes for `errors.Is`. Failed execution returns the zero result. Responses must contain exactly one JSON value; malformed data and trailing JSON are rejected. Response version/ID matching and full envelope validation are not currently enforced.
 
-func main() {
-	req := jsonrpc.NewRequest[map[string]int, string](
-		"exampleMethod",
-		map[string]int{"value": 123},
-	)
+Request bytes belong to each execution and remain valid for asynchronous transport reads and redirect replays. Responses within the size limit are read to EOF before decoding, allowing HTTP/1 connection reuse even after JSON decode errors. Oversized responses and HTTP error bodies are closed immediately; those paths can sacrifice connection reuse to avoid further untrusted reads. Response limits bound input bytes, not decoded Go object sizes or aggregate memory across concurrent calls.
 
-	pReq := req.Prepare(
-		"https://your.rpc",
-		jsonrpc.WithHeader("Authorization", "Bearer token"),
-		jsonrpc.WithContext(context.Background()),
-	)
+The default transport keeps at most 100 idle connections total, 16 per host, uses standard transport I/O buffer sizes, and enables HTTP/2 and automatic gzip handling. Compression trades CPU for bandwidth. Decoded strings are copied so small results do not retain an entire large response. Caller-controlled custom unmarshaling can have its own allocation/retention behavior. Request fields and parameters must not be mutated during execution.
 
-	result, err := pReq.Execute(nil)
-	if err != nil {
-		log.Fatalf("request failed: %v", err)
-	}
+Tests use the external `jsonrpc_test` package; benchmarks live in `request_bench_test.go`.
 
-	fmt.Printf("Result: %s\n", *result)
-}
+```sh
+go test -race -vet=all ./...
+go test -run '^$' -bench . -benchmem
 ```
 
-### 3. Using a custom HTTP client
-
-```go
-package main
-
-import (
-	"net/http"
-	"time"
-
-	"github.com/LiquidCats/paw/lib/jsonrpc"
-)
-
-func main() {
-	req := jsonrpc.NewRequest[struct{}, string]("ping", struct{}{})
-	pReq := req.Prepare("https://your.rpc")
-
-	// Custom client with a 10‑second timeout.
-	custom := &http.Client{Timeout: 10 * time.Second}
-
-	result, err := pReq.Execute(custom)
-	if err != nil {
-		panic(err)
-	}
-
-	println(*result)
-}
-```
-
-## API Reference
-
-### `NewRequest[Params any, Result any](method string, params Params) *rpcRequest[Params, Result]`
-
-Creates a new JSON‑RPC 2.0 request.
-
-| Parameter | Type   | Description          |
-|-----------|--------|----------------------|
-| `method`  | string | RPC method name.     |
-| `params`  | Params | Method parameters.   |
-
-### `(*rpcRequest[Params, Result]) Prepare(url string, opts ...PrepareOpt) *praparedRPCRequest[Result]`
-
-Prepares the request for a specific URL, applying any provided options.
-
-| Parameter | Type          | Description                          |
-|-----------|---------------|--------------------------------------|
-| `url`     | string        | Target endpoint.                     |
-| `opts`    | ...PrepareOpt | Request‑level options (headers, etc).|
-
-### `(*praparedRPCRequest[Result]) Execute(client *http.Client, opts ...ExecuteOpt) (*Result, error)`
-
-Executes the prepared request.
-
-| Parameter | Type          | Description                                        |
-|-----------|---------------|----------------------------------------------------|
-| `client`  | *http.Client  | HTTP client to use; if nil, the library’s default is used. |
-| `opts`    | ...ExecuteOpt | Client‑level options (currently none).             |
-
-### Request‑level option helpers
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `WithContext(ctx context.Context)` | `func(context.Context) PrepareOpt` | Sets the request’s context. |
-| `WithHeader(key, value string)` | `func(string, string) PrepareOpt` | Adds or overrides an HTTP header. |
-| `WithContentType(contentType string)` | `func(string) PrepareOpt` | Sets the `Content‑Type` header. |
-
-### Error handling
-
-- JSON‑RPC errors returned by the server are wrapped in `jsonrpc.RPCError`, which implements the `error` interface.
-- HTTP status codes outside 2xx are returned as wrapped errors with the status code.
-
-## Performance Notes
-
-- **Connection pooling**: up to 4096 idle connections, 1024 per host.
-- **Buffers**: 64 KB read/write buffers for efficient I/O.
-- **HTTP/2**: enabled by default; multiplexed streams per connection.
-- **Compression**: gzip/deflate automatically handled (`DisableCompression: false`).
-- **TLS session cache**: 4096 entries.
-
-## Contributing
-
-Feel free to open issues or pull requests. All contributions are welcome!
-
-## License
-
-This project is licensed under the GNU Affero General Public License v3.0 – see the [LICENSE](LICENSE) file for details.
+See [REVIEW.md](REVIEW.md) for findings and measured performance tradeoffs.

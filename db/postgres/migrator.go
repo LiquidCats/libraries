@@ -22,7 +22,7 @@ func MigrateUp(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error 
 	// connection never returns to the pool.
 	defer conn.Release()
 
-	sourceDriver, err := iofs.New(migrations, "migrations")
+	sourceDriver, err := iofs.New(migrations, ".")
 	if err != nil {
 		return fmt.Errorf("new migration source driver: %w", err)
 	}

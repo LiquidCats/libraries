@@ -15,7 +15,7 @@ var benchmarkRequest *rpc.Request[int]
 func BenchmarkNewRequest(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		benchmarkRequest = rpc.NewRequest[int]("sum", []any{1, 2}, rpc.WithRPCid[int]("bench"))
+		benchmarkRequest = rpc.NewRequest[int]("sum", []any{1, 2}, rpc.WithRPCid[string, int]("bench"))
 	}
 }
 
@@ -43,7 +43,7 @@ func BenchmarkExecute(b *testing.B) {
 				_ = r.Body.Close()
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(response)), Header: make(http.Header), ContentLength: contentLength}, err
 			})}
-			request := rpc.NewRequest[string]("echo", []any{payload}, rpc.WithRPCid[string]("bench"))
+			request := rpc.NewRequest[string]("echo", []any{payload}, rpc.WithRPCid[string, string]("bench"))
 			b.ReportAllocs()
 			b.SetBytes(int64(len(response)))
 			b.ResetTimer()

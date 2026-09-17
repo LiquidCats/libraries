@@ -15,15 +15,11 @@ import (
 
 const Version = "2.0"
 
-type rpcRequest[Result any] struct {
+type Request[Result any] struct {
 	Method  string `json:"method"`
 	Params  []any  `json:"params,omitempty"`
 	ID      any    `json:"id"`
 	JSONRPC string `json:"jsonrpc"`
-}
-
-type Request[Result any] struct {
-	rpcRequest[Result]
 }
 
 func NewRequest[Result any](
@@ -31,7 +27,7 @@ func NewRequest[Result any](
 	params []any,
 	opts ...RequestOption[Result],
 ) *Request[Result] {
-	req := rpcRequest[Result]{
+	req := Request[Result]{
 		ID:      strconv.FormatInt(time.Now().UnixNano(), 10),
 		Method:  method,
 		JSONRPC: Version,
@@ -42,9 +38,7 @@ func NewRequest[Result any](
 		opt(&req)
 	}
 
-	return &Request[Result]{
-		rpcRequest: req,
-	}
+	return &req
 }
 
 // Copy decoded strings so a small result cannot retain a large response body.
@@ -68,7 +62,7 @@ func (r Request[Result]) Execute(ctx context.Context, url string, opts ...Execut
 
 	// The transport may still own the body after Do returns an error.
 	// Give each request its own bytes, including redirect/retry replays.
-	data, err := sonic.Marshal(r.rpcRequest)
+	data, err := sonic.Marshal(r)
 	if err != nil {
 		return zero, fmt.Errorf("failed to encode request: %w", err)
 	}

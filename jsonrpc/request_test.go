@@ -35,7 +35,7 @@ func TestNewRequest(t *testing.T) {
 	if r.Method != "sum" || r.JSONRPC != rpc.Version || r.ID == "" || len(r.Params) != 2 {
 		t.Fatalf("unexpected request: %+v", r)
 	}
-	custom := rpc.NewRequest[int]("sum", nil, rpc.WithRPCVersion[int]("1.0"), rpc.WithRPCid[int](42), rpc.WithRPCid[int](43))
+	custom := rpc.NewRequest[int]("sum", nil, rpc.WithRPCVersion[int]("1.0"), rpc.WithRPCid[int, int](42), rpc.WithRPCid[int, int](43))
 	if custom.ID != 43 || custom.JSONRPC != "1.0" {
 		t.Fatalf("options not applied: %+v", custom)
 	}
@@ -72,7 +72,7 @@ func TestExecuteHTTP(t *testing.T) {
 	}))
 	defer server.Close()
 	type result struct{ Total int }
-	req := rpc.NewRequest[result]("sum", []any{1, 2}, rpc.WithRPCid[result]("test"))
+	req := rpc.NewRequest[result]("sum", []any{1, 2}, rpc.WithRPCid[string, result]("test"))
 	// Exercise both the shared default client and the injected client.
 	for _, options := range [][]rpc.ExecuteOption[result]{nil, {rpc.WithClient[result](server.Client()), rpc.WithClient[result](nil)}} {
 		got, err := req.Execute(context.Background(), server.URL, options...)

@@ -5,16 +5,16 @@ import "net/http"
 // DefaultMaxResponseBytes limits the decompressed HTTP response to 64 MiB.
 const DefaultMaxResponseBytes int64 = 64 << 20
 
-type RequestOption[Resp any] func(*rpcRequest[Resp])
+type RequestOption[Resp any] func(*Request[Resp])
 
 func WithRPCVersion[Resp any](version string) RequestOption[Resp] {
-	return func(req *rpcRequest[Resp]) {
+	return func(req *Request[Resp]) {
 		req.JSONRPC = version
 	}
 }
 
-func WithRPCid[Resp any](id any) RequestOption[Resp] {
-	return func(req *rpcRequest[Resp]) {
+func WithRPCid[ID, Resp any](id ID) RequestOption[Resp] {
+	return func(req *Request[Resp]) {
 		req.ID = id
 	}
 }

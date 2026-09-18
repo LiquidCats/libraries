@@ -10,7 +10,7 @@ no umbrella module.
 | [`workers`](workers) | `github.com/LiquidCats/libraries/workers` | Generic autoscaling worker pool. |
 | [`observer`](observer) | `github.com/LiquidCats/libraries/observer` | Event subject/observer fan-out with a fixed worker count. |
 | [`jsonrpc`](jsonrpc) | `github.com/LiquidCats/libraries/jsonrpc` | Generic JSON-RPC 2.0 client over a tuned `http.Client`. |
-| [`db`](db) | `github.com/LiquidCats/libraries/db` | Postgres transaction manager and `io/fs` migration runner on `pgx`. |
+| [`db`](db) | `github.com/LiquidCats/libraries/db/v2` | Postgres and sqlite transaction managers and `io/fs` migration runners. |
 | [`evm-lib`](evm-lib) | `github.com/LiquidCats/libraries/evm-lib` | Decode EVM transaction calldata into value transfers, no ABI or node required. |
 | [`utxo-lib`](utxo-lib) | `github.com/LiquidCats/libraries/utxo-lib` | Bitcoin network parameters (magic bytes, address prefixes). |
 
@@ -130,29 +130,75 @@ params.IsBech32SegwitPrefix("bc1")
 
 ## db
 
-`TxManager` carries a `pgx.Tx` on the context; `QueriesTxManager[T]` wraps a
+`go get github.com/LiquidCats/libraries/db/v2`
+
+Two independent driver packages, `postgres` (on `pgx`) and `sqlite` (on
+`database/sql` + `modernc.org/sqlite`), each shipping a `TxManager` and a
+`MigrateUp`. They don't share code: `pgx.Tx.Commit(ctx)` and `sql.Tx.Commit()`
+have different signatures.
+
+`Connect` builds the pool/handle from functional options and validates them —
+`WithHost`, `WithPort`, `WithUser`, `WithPassword`, `WithDatabase` for
+postgres; `WithDatabase`, `WithMaxOpenConns`, `WithMaxIdleConns`,
+`WithConnMaxIdleTime`, `WithConnMaxLifetime` for sqlite.
+
+`TxManager` carries a transaction on the context; `QueriesTxManager[T]` wraps a
 generated `Queries` type so a callback runs against the transaction and is
 rolled back on any error.
 
 ```go
+pool, err := postgres.Connect(ctx,
+    postgres.WithHost("localhost"),
+    postgres.WithDatabase("app"),
+    postgres.WithUser("app"),
+    postgres.WithPassword("secret"),
+)
+
 mgr := postgres.NewQueriesTxManager(postgres.NewTxManager(pool), sqlcQueries)
 
-err := mgr.Transactional(ctx, func(txCtx context.Context) error {
+err = mgr.Transactional(ctx, func(txCtx context.Context) error {
     q := mgr.GetQueries(txCtx)  // transaction-scoped
     return q.InsertThing(txCtx, thing)
-}, postgres.WithIsoLevel(postgres.RepeatableRead))
+}, postgres.WithIsoLevel(pgx.Serializable))
 ```
 
 `Commit`, `Rollback` and `Transactional` return `ErrNoTransaction` if the
-context did not come from `Begin`. Migrations run from any `fs.FS` with a
-`migrations/` directory:
+context did not come from `Begin`. Migrations run from an `fs.FS` rooted at the
+migration files themselves — `fs.Sub` a `migrations/` directory, `MigrateUp`
+does not do that for you:
 
 ```go
 //go:embed migrations/*.sql
-var migrations embed.FS
+var raw embed.FS
 
-err := postgres.MigrateUp(ctx, pool, migrations)
+migrations, err := fs.Sub(raw, "migrations")
+if err != nil {
+    // ...
+}
+
+err = postgres.MigrateUp(ctx, pool, migrations)
 ```
+
+### sqlite
+
+Same shape, on top of `modernc.org/sqlite` (pure Go, no cgo). There is no
+`WithIsoLevel`: the driver ignores `sql.TxOptions.Isolation` outright, so the
+option would silently do nothing. `WithReadOnly` is honored — it picks a
+non-locking `BEGIN`, though SQLite still won't reject a write inside it.
+
+Pragmas and other DSN knobs ride through `WithDatabase` — the driver parses
+`_busy_timeout`, `_txlock`, `_fk`, `_journal`, `_sync` and repeated
+`_pragma=` straight off the connection string:
+
+```go
+conn, err := sqlite.Connect(ctx, sqlite.WithDatabase(
+    "file:app.db?_txlock=immediate&_busy_timeout=5000&_pragma=journal_mode(WAL)&_fk=1",
+))
+```
+
+`:memory:` databases are per connection, so concurrent access needs
+`WithMaxOpenConns(1)` (the default) or the writer's changes won't be visible
+to other pooled connections.
 
 ## Development
 

@@ -1,12 +1,10 @@
-package postgres
+package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type managerCtxKey string
@@ -19,39 +17,41 @@ const (
 // ErrNoTransaction is returned when a context did not come from Begin.
 var ErrNoTransaction = errors.New("no transaction in context")
 
-type TxOption func(*pgx.TxOptions)
+type TxOption func(*sql.TxOptions)
 
-func WithIsoLevel(lvl pgx.TxIsoLevel) TxOption {
-	return func(txOpts *pgx.TxOptions) {
-		txOpts.IsoLevel = lvl
+// WithReadOnly begins the transaction in read-only mode. There is no isolation
+// level option: the modernc driver ignores sql.TxOptions.Isolation entirely.
+func WithReadOnly() TxOption {
+	return func(txOpts *sql.TxOptions) {
+		txOpts.ReadOnly = true
 	}
 }
 
 type TxManager struct {
-	conn *pgxpool.Pool
+	conn *sql.DB
 }
 
 type Queries[T any] interface {
-	WithTx(tx pgx.Tx) *T
+	WithTx(tx *sql.Tx) *T
 }
 
-func NewTxManager(conn *pgxpool.Pool) *TxManager {
+func NewTxManager(conn *sql.DB) *TxManager {
 	return &TxManager{
 		conn: conn,
 	}
 }
 
 func (m *TxManager) Begin(ctx context.Context, opts ...TxOption) (context.Context, error) {
-	cfg := pgx.TxOptions{
-		IsoLevel:   pgx.Serializable,
-		AccessMode: pgx.ReadWrite,
+	// Isolation is left unset: the modernc driver reads only ReadOnly.
+	cfg := sql.TxOptions{
+		ReadOnly: false,
 	}
 
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
-	tx, err := m.conn.BeginTx(ctx, cfg)
+	tx, err := m.conn.BeginTx(ctx, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
@@ -62,12 +62,12 @@ func (m *TxManager) Begin(ctx context.Context, opts ...TxOption) (context.Contex
 }
 
 func (m *TxManager) Commit(ctx context.Context) error {
-	tx, ok := ctx.Value(txCtxValue).(pgx.Tx)
+	tx, ok := ctx.Value(txCtxValue).(*sql.Tx)
 	if !ok {
 		return ErrNoTransaction
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
 	}
 
@@ -75,12 +75,12 @@ func (m *TxManager) Commit(ctx context.Context) error {
 }
 
 func (m *TxManager) Rollback(ctx context.Context) error {
-	tx, ok := ctx.Value(txCtxValue).(pgx.Tx)
+	tx, ok := ctx.Value(txCtxValue).(*sql.Tx)
 	if !ok {
 		return ErrNoTransaction
 	}
 
-	if err := tx.Rollback(ctx); err != nil {
+	if err := tx.Rollback(); err != nil {
 		return fmt.Errorf("rollback tx: %w", err)
 	}
 
@@ -107,7 +107,7 @@ func (m *QueriesTxManager[T]) Transactional(ctx context.Context, callback TxCall
 		return fmt.Errorf("begin query tx: %w", err)
 	}
 
-	tx, ok := txCtx.Value(txCtxValue).(pgx.Tx)
+	tx, ok := txCtx.Value(txCtxValue).(*sql.Tx)
 	if !ok {
 		return ErrNoTransaction
 	}

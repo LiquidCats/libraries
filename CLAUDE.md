@@ -61,8 +61,10 @@ Things worth knowing before debugging a failure:
 
 Both targets must be clean — they are the two CI steps. `graceful` and `workers` tests
 exercise real timing and take ~7s and ~15s; that is normal, not a hang.
-`db`, `evm-lib` and `utxo-lib` currently have no tests, so `go test` only builds
-and vets them.
+`evm-lib` and `utxo-lib` currently have no tests, so `go test` only builds and
+vets them. `db` has sqlite-backed tests (pure Go, run against `:memory:`); the
+pgx-specific postgres package stays build-and-vet only — it would need a
+container, and `make test` runs `--network=none`.
 
 CI is `.github/workflows/ci.yml`, two jobs: `test` runs each module against
 every Go version in `matrix.go` (currently just 1.27), and `lint` runs once per
@@ -87,9 +89,10 @@ pair, or that job fails outright instead of being skipped.
   `workers` and `observer` use stdlib `errors` and no logger; `db` uses
   `fmt.Errorf` with `%w`. Match the module you are editing instead of unifying
   them.
-- `db` stores the `pgx.Tx` on the context. Type assertions pulling it back out
-  must use the comma-ok form and return `ErrNoTransaction` — a bare assertion
-  panics on any context that did not come from `Begin`.
+- `db` stores the transaction (`pgx.Tx` or `*sql.Tx`) on the context. Type
+  assertions pulling it back out must use the comma-ok form and return
+  `ErrNoTransaction` — a bare assertion panics on any context that did not
+  come from `Begin`.
 - Concurrency is `golang.org/x/sync/errgroup` throughout: the first error
   cancels the context and unwinds everything.
 - `graceful`, `workers` and `observer` have no dependency on any chain code.

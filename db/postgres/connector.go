@@ -4,21 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
-	ErrUnparsableConfigration = errors.New("unparsable configuration")
-	ErrDatabaseRequired       = errors.New("database required")
-	ErrUserRequired           = errors.New("user required")
-	ErrPasswordRequired       = errors.New("password required")
-	ErrHostRequired           = errors.New("host required")
-	ErrPortRequired           = errors.New("port required")
+	ErrUnparsableConfiguration = errors.New("unparsable configuration")
+	ErrDatabaseRequired        = errors.New("database required")
+	ErrUserRequired            = errors.New("user required")
+	ErrPasswordRequired        = errors.New("password required")
+	ErrHostRequired            = errors.New("host required")
+	ErrPortRequired            = errors.New("port required")
 )
 
 type config struct {
-	driver   string
 	host     string
 	port     string
 	database string
@@ -29,11 +30,16 @@ type config struct {
 }
 
 func (c *config) ToDSN() string {
-	dsn := "postgres://" + c.user + ":" + c.password + "@" + c.host + ":" + c.port + "/" + c.database
-	if c.disableSSL {
-		dsn += "?sslmode=disable"
+	u := url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(c.user, c.password),
+		Host:   net.JoinHostPort(c.host, c.port),
+		Path:   "/" + c.database,
 	}
-	return dsn
+	if c.disableSSL {
+		u.RawQuery = "sslmode=disable"
+	}
+	return u.String()
 }
 
 type ConnectionOption func(*config)
@@ -76,7 +82,6 @@ func WithDatabase(database string) ConnectionOption {
 
 func Connect(ctx context.Context, opts ...ConnectionOption) (*pgxpool.Pool, error) {
 	cfg := &config{
-		driver:   "postgres",
 		host:     "localhost",
 		port:     "5432",
 		database: "",
@@ -109,7 +114,7 @@ func Connect(ctx context.Context, opts ...ConnectionOption) (*pgxpool.Pool, erro
 
 	poolConfig, err := pgxpool.ParseConfig(cfg.ToDSN())
 	if err != nil {
-		return nil, ErrUnparsableConfigration
+		return nil, fmt.Errorf("%w: %w", ErrUnparsableConfiguration, err)
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {

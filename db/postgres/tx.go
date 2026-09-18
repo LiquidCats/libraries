@@ -19,23 +19,11 @@ const (
 // ErrNoTransaction is returned when a context did not come from Begin.
 var ErrNoTransaction = errors.New("no transaction in context")
 
-// TxIsoLevel is the transaction isolation level (serializable, repeatable read,
-// read committed or read uncommitted).
-type TxIsoLevel string
-
-// Transaction isolation levels.
-const (
-	Serializable    TxIsoLevel = "serializable"
-	RepeatableRead  TxIsoLevel = "repeatable read"
-	ReadCommitted   TxIsoLevel = "read committed"
-	ReadUncommitted TxIsoLevel = "read uncommitted"
-)
-
 type TxOption func(*pgx.TxOptions)
 
-func WithIsoLevel(lvl TxIsoLevel) TxOption {
+func WithIsoLevel(lvl pgx.TxIsoLevel) TxOption {
 	return func(txOpts *pgx.TxOptions) {
-		txOpts.IsoLevel = pgx.TxIsoLevel(lvl)
+		txOpts.IsoLevel = lvl
 	}
 }
 
@@ -128,11 +116,11 @@ func (m *QueriesTxManager[T]) Transactional(ctx context.Context, callback TxCall
 
 	txCtx = context.WithValue(txCtx, queriesCtxValue, txQueries)
 
-	if err = callback(txCtx); err != nil {
-		if err = m.manager.Rollback(txCtx); err != nil {
-			return fmt.Errorf("rollback query tx: %w", err)
+	if cbErr := callback(txCtx); cbErr != nil {
+		if rbErr := m.manager.Rollback(txCtx); rbErr != nil {
+			return fmt.Errorf("rollback query tx: %w (callback: %w)", rbErr, cbErr)
 		}
-		return fmt.Errorf("query tx callback: %w", err)
+		return fmt.Errorf("query tx callback: %w", cbErr)
 	}
 
 	if err = m.manager.Commit(txCtx); err != nil {

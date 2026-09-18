@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/rotisserie/eris"
 )
 
 func MigrateUp(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
@@ -48,7 +48,7 @@ func MigrateUp(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error 
 	}
 
 	// Run the up migrations.
-	if err = m.Up(); err != nil && !eris.Is(err, migrate.ErrNoChange) {
+	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("migration up: %w", err)
 	}
 

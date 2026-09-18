@@ -78,7 +78,7 @@ func connect(t *testing.T) *sql.DB {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := conn.Close(); err != nil {
+		if err = conn.Close(); err != nil {
 			t.Errorf("close: %v", err)
 		}
 	})

@@ -9,8 +9,9 @@ no umbrella module.
 | [`graceful`](graceful) | `github.com/LiquidCats/libraries/graceful` | Run HTTP/gRPC servers, cron, tickers and channel workers under one context, shut them all down on signal. |
 | [`workers`](workers) | `github.com/LiquidCats/libraries/workers` | Generic autoscaling worker pool. |
 | [`observer`](observer) | `github.com/LiquidCats/libraries/observer` | Event subject/observer fan-out with a fixed worker count. |
-| [`jsonrpc`](jsonrpc) | `github.com/LiquidCats/libraries/jsonrpc` | Generic JSON-RPC 2.0 client over a tuned `http.Client`. |
+| [`jsonrpc`](jsonrpc) | `github.com/LiquidCats/libraries/jsonrpc/v2` | Generic JSON-RPC 2.0 client over a tuned `http.Client`. |
 | [`db`](db) | `github.com/LiquidCats/libraries/db/v2` | Postgres and sqlite transaction managers and `io/fs` migration runners. |
+| [`cfg`](cfg) | `github.com/LiquidCats/libraries/cfg` | Load a config struct from env vars (`envconfig`) and an optional YAML file. |
 | [`evm-lib`](evm-lib) | `github.com/LiquidCats/libraries/evm-lib` | Decode EVM transaction calldata into value transfers, no ABI or node required. |
 | [`utxo-lib`](utxo-lib) | `github.com/LiquidCats/libraries/utxo-lib` | Bitcoin network parameters (magic bytes, address prefixes). |
 
@@ -41,10 +42,22 @@ if err != nil && !eris.Is(err, graceful.ErrShutdownBySignal) {
 Runners:
 
 - `Server(http.Handler, ...ServerOpt)` — `WithPort`, `WithReadTimeout`, `WithWriteTimeout`.
-- `GRPCRunner(GRPCAttacher, ...GRPCOpt)` — `WithGRPCPort`, `WithConnectionTimeout`. The attacher registers your services on the `*grpc.Server`.
+- `GRPCRunner(GRPCAttacher, ...GRPCOpt)` — `WithGRPCPort`, `WithConnectionTimeout`, `WithUnaryInterceptor`, `WithRequestLogger`, `WithPanicReocvery`. The attacher registers your services on the `*grpc.Server`.
 - `ScheduleRunner(...Task)` — cron entries, backed by `robfig/cron/v3`.
 - `Ticker(interval, Runner, ...TickerOpt)` — `WithTickerLogger`.
 - `Worker[T](<-chan T, WorkerHandler[T], ...WorkerOpt)` — `WithWorkerLogger`.
+
+gRPC unary interceptors run in the order the options are passed, first option
+outermost. `WithRequestLogger` and `WithPanicReocvery` take any logger with
+`Info(msg string, args ...F)` / `Error(msg string, args ...F)` — `*slog.Logger`
+fits with `F = any`:
+
+```go
+graceful.GRPCRunner(attacher,
+    graceful.WithRequestLogger[any](logger),  // logs "incoming request: <method>, duration: ..."
+    graceful.WithPanicReocvery[any](logger),  // logs the panic, client gets codes.Internal
+)
+```
 
 A ticker or worker whose handler returns an error wraps it in `ErrTickerFailure`
 / `ErrWorkerFailure`, which fails the group and unwinds everything else.
@@ -87,6 +100,39 @@ subject.Notify(&observer.Event{Name: "block.new", Data: block})
 `Register` is safe to call while running. `Notify` blocks until a worker picks
 the event up — the channel is unbuffered, so a slow observer applies
 backpressure to the producer.
+
+## jsonrpc
+
+`go get github.com/LiquidCats/libraries/jsonrpc/v2`
+
+```go
+req := jsonrpc.NewRequest[string]("exampleMethod", []any{123})
+result, err := req.Execute(ctx, "https://your.rpc",
+    jsonrpc.WithHeader[string]("Authorization", "Bearer token"),
+)
+```
+
+A JSON-RPC error comes back as `*jsonrpc.RPCError` (use `errors.As`). Options
+for `Execute`: `WithHeader`, `WithClient`, `WithMaxResponseBytes`. See
+[`jsonrpc/README.md`](jsonrpc/README.md) for timeouts, size limits and
+connection-reuse details.
+
+## cfg
+
+Loads a config struct from env vars, then overlays an optional YAML file.
+
+```go
+conf, err := cfg.Load[Config](
+    cfg.WithPrefix("APP"),
+    cfg.WithFilePath("config.yaml"),
+)
+```
+
+`envconfig` runs first (env vars, then `default:"..."` tags), then the YAML file
+is decoded on top — keys present in the file override env values, everything
+else keeps its env/default value. `required:"true"` is enforced against the
+environment only; a YAML value does not satisfy it. See
+[`cfg/README.md`](cfg/README.md).
 
 ## evm-lib
 
@@ -139,7 +185,7 @@ have different signatures.
 
 `Connect` builds the pool/handle from functional options and validates them —
 `WithHost`, `WithPort`, `WithUser`, `WithPassword`, `WithDatabase` for
-postgres; `WithDatabase`, `WithMaxOpenConns`, `WithMaxIdleConns`,
+postgres (plus `WithDisableSSL`); `WithDatabase`, `WithMaxOpenConns`, `WithMaxIdleConns`,
 `WithConnMaxIdleTime`, `WithConnMaxLifetime` for sqlite.
 
 `TxManager` carries a transaction on the context; `QueriesTxManager[T]` wraps a

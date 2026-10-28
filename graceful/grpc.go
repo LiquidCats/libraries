@@ -2,12 +2,15 @@ package graceful
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
 
 	"github.com/rotisserie/eris"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -18,6 +21,7 @@ const (
 type grpcSrv struct {
 	port              string
 	connectionTimeout time.Duration
+	unaryInterceptors []grpc.UnaryServerInterceptor
 }
 
 type GRPCAttacher interface {
@@ -32,9 +36,59 @@ func WithGRPCPort(port string) GRPCOpt {
 	}
 }
 
+func WithUnaryInterceptor(interceptor grpc.UnaryServerInterceptor) GRPCOpt {
+	return func(g *grpcSrv) {
+		g.unaryInterceptors = append(g.unaryInterceptors, interceptor)
+	}
+}
+
+type errLogger[F any] interface {
+	Error(msg string, args ...F)
+}
+
+func WithPanicReocvery[F any](l errLogger[F]) GRPCOpt {
+	return func(g *grpcSrv) {
+		g.unaryInterceptors = append(g.unaryInterceptors, func(
+			ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+		) (resp any, err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					l.Error(fmt.Sprintf("recover after panic: %v", r))
+
+					resp, err = nil, status.Error(codes.Internal, "internal error")
+				}
+			}()
+
+			return handler(ctx, req)
+		})
+	}
+}
+
 func WithConnectionTimeout(timeout time.Duration) GRPCOpt {
 	return func(g *grpcSrv) {
 		g.connectionTimeout = timeout
+	}
+}
+
+type infoLogger[F any] interface {
+	Info(msg string, args ...F)
+}
+
+func WithRequestLogger[F any](l infoLogger[F]) GRPCOpt {
+	return func(g *grpcSrv) {
+		g.unaryInterceptors = append(g.unaryInterceptors, func(
+			ctx context.Context,
+			req any,
+			info *grpc.UnaryServerInfo,
+			handler grpc.UnaryHandler,
+		) (any, error) {
+			now := time.Now()
+			defer func() {
+				l.Info(fmt.Sprintf("incoming request: %s, duration: %v", info.FullMethod, time.Since(now)))
+			}()
+
+			return handler(ctx, req)
+		})
 	}
 }
 
@@ -48,7 +102,10 @@ func GRPCRunner(attacher GRPCAttacher, opts ...GRPCOpt) Runner {
 		opt(cfg)
 	}
 
-	grpcServer := grpc.NewServer(grpc.ConnectionTimeout(cfg.connectionTimeout))
+	grpcServer := grpc.NewServer(
+		grpc.ConnectionTimeout(cfg.connectionTimeout),
+		grpc.ChainUnaryInterceptor(cfg.unaryInterceptors...),
+	)
 
 	attacher.AttachToGRPC(grpcServer)
 

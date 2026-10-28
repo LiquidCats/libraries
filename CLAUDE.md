@@ -5,8 +5,8 @@ what each library does and how it is used.
 
 ## Layout
 
-Seven independent Go modules, one per directory — `db`, `evm-lib`, `graceful`,
-`jsonrpc`, `observer`, `utxo-lib`, `workers`. There is no root module and no
+Eight independent Go modules, one per directory — `cfg`, `db`, `evm-lib`,
+`graceful`, `jsonrpc`, `observer`, `utxo-lib`, `workers`. There is no root module and no
 `go.work` (it is gitignored on purpose).
 
 Consequences:
@@ -17,7 +17,7 @@ Consequences:
   cross-module import means the consumer needs a `require` plus a released tag
   of the dependency, which is why they are separate modules.
 - Every module is on `go 1.27.0`. They are pinned per module rather than
-  centrally, so a bump means editing all seven `go.mod` files (`make tidy`
+  centrally, so a bump means editing all eight `go.mod` files (`make tidy`
   afterwards) — and raising any of them past `GO_IMAGE` in the Makefile breaks
   every target until that is bumped too.
 - Releases are tagged `<module>/vX.Y.Z`. A bare `vX.Y.Z` tag does not publish

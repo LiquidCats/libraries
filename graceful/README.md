@@ -69,6 +69,28 @@ func main() {
     - Runs each runner concurrently using an `errgroup`.
     - Cancels the context if any runner returns an error or if a termination signal is received.
 
+## gRPC Runner
+
+`GRPCRunner(attacher, opts...)` serves gRPC until the context is cancelled, then calls `GracefulStop`. The attacher registers your services on the server.
+
+| Option | Effect |
+|--------|--------|
+| `WithGRPCPort(port)` | Listen port (default `50051`). |
+| `WithConnectionTimeout(d)` | Connection setup timeout (default 120s). |
+| `WithUnaryInterceptor(i)` | Adds a unary interceptor. |
+| `WithRequestLogger[F](logger)` | Logs `incoming request: <method>, duration: <d>` via `logger.Info`. |
+| `WithPanicReocvery[F](logger)` | Recovers handler panics, logs them via `logger.Error`, returns `codes.Internal` to the client (the panic value is not sent). |
+
+Interceptors run in the order the options are passed, the first being outermost. Any logger with `Info(msg string, args ...F)` / `Error(msg string, args ...F)` works; for `*slog.Logger` use `F = any`:
+
+```go
+runner := graceful.GRPCRunner(attacher,
+	graceful.WithGRPCPort("9090"),
+	graceful.WithRequestLogger[any](logger),
+	graceful.WithPanicReocvery[any](logger),
+)
+```
+
 ## Contributing
 
 Contributions are welcome! Feel free to open issues or submit pull requests for bug fixes, improvements, or new features.
